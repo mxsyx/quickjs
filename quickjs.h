@@ -692,6 +692,7 @@ static inline void JS_FreeValueRT(JSRuntime *rt, JSValue v)
     }
 }
 
+// 将对象的引用计数加1
 static inline JSValue JS_DupValue(JSContext *ctx, JSValueConst v)
 {
     if (JS_VALUE_HAS_REF_COUNT(v)) {

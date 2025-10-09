@@ -2329,6 +2329,7 @@ static inline BOOL is_strict_mode(JSContext *ctx)
 /* return the max count from the hash size */
 #define JS_ATOM_COUNT_RESIZE(n) ((n) * 2)
 
+// Atom 是关键字
 static inline BOOL __JS_AtomIsConst(JSAtom v)
 {
 #if defined(DUMP_LEAKS) && DUMP_LEAKS > 1
@@ -2338,16 +2339,19 @@ static inline BOOL __JS_AtomIsConst(JSAtom v)
 #endif
 }
 
+// 判断标志位是否为1
 static inline BOOL __JS_AtomIsTaggedInt(JSAtom v)
 {
     return (v & JS_ATOM_TAG_INT) != 0;
 }
 
+// 设置标志位为1
 static inline JSAtom __JS_AtomFromUInt32(uint32_t v)
 {
     return v | JS_ATOM_TAG_INT;
 }
 
+// 去掉标志位1
 static inline uint32_t __JS_AtomToUInt32(JSAtom atom)
 {
     return atom & ~JS_ATOM_TAG_INT;
@@ -4585,11 +4589,13 @@ static uint32_t shape_hash(uint32_t h, uint32_t val)
 }
 
 /* truncate the shape hash to 'hash_bits' bits */
+// 取 Shape 的 hash 值的前 hash_bits 位
 static uint32_t get_shape_hash(uint32_t h, int hash_bits)
 {
     return h >> (32 - hash_bits);
 }
 
+// 计算 Shape 的哈希: 64 位下 proto 的值(指向对象的地址)按低 32 位与高 32 位进行两次哈希运算
 static uint32_t shape_initial_hash(JSObject *proto)
 {
     uint32_t h;
@@ -4625,6 +4631,7 @@ static int resize_shape_hash(JSRuntime *rt, int new_shape_hash_bits)
     return 0;
 }
 
+// 将 Shape 链接到运行时的 Shape 哈希表中
 static void js_shape_hash_link(JSRuntime *rt, JSShape *sh)
 {
     uint32_t h;
@@ -4720,6 +4727,7 @@ static JSShape *js_clone_shape(JSContext *ctx, JSShape *sh1)
     return sh;
 }
 
+// 增加 JSShape 的引用计数
 static JSShape *js_dup_shape(JSShape *sh)
 {
     sh->header.ref_count++;
@@ -5030,6 +5038,7 @@ static __maybe_unused void JS_DumpShapes(JSRuntime *rt)
     printf("}\n");
 }
 
+// 从 JSShape 创建 JSObject
 static JSValue JS_NewObjectFromShape(JSContext *ctx, JSShape *sh, JSClassID class_id)
 {
     JSObject *p;
@@ -5130,6 +5139,7 @@ static JSValue JS_NewObjectFromShape(JSContext *ctx, JSShape *sh, JSClassID clas
     return JS_MKPTR(JS_TAG_OBJECT, p);
 }
 
+// 返回 JSValue 指向的 JSObject
 static JSObject *get_proto_obj(JSValueConst proto_val)
 {
     if (JS_VALUE_GET_TAG(proto_val) != JS_TAG_OBJECT)
@@ -5139,6 +5149,7 @@ static JSObject *get_proto_obj(JSValueConst proto_val)
 }
 
 /* WARNING: proto must be an object or JS_NULL */
+// 创建以 proto_val 为原型的 JSObject
 JSValue JS_NewObjectProtoClass(JSContext *ctx, JSValueConst proto_val,
                                JSClassID class_id)
 {
@@ -5226,6 +5237,7 @@ JSValue JS_NewObject(JSContext *ctx)
     return JS_NewObjectProtoClass(ctx, ctx->class_proto[JS_CLASS_OBJECT], JS_CLASS_OBJECT);
 }
 
+// 设置函数原型对象的 name 与 length 属性
 static void js_function_set_properties(JSContext *ctx, JSValueConst func_obj,
                                        JSAtom name, int len)
 {
@@ -5500,7 +5512,8 @@ static force_inline JSShapeProperty *find_own_property1(JSObject *p,
     return NULL;
 }
 
-static force_inline JSShapeProperty *find_own_property(JSProperty **ppr,
+// read_start
+static JSShapeProperty *find_own_property(JSProperty **ppr,
                                                        JSObject *p,
                                                        JSAtom atom)
 {
@@ -5900,6 +5913,7 @@ static void gc_remove_weak_objects(JSRuntime *rt)
     free_zero_refcount(rt);
 }
 
+// 将对象链接到运行时的垃圾回收列表尾部
 static void add_gc_object(JSRuntime *rt, JSGCObjectHeader *h,
                           JSGCObjectTypeEnum type)
 {
@@ -7186,6 +7200,7 @@ static inline __exception int js_poll_interrupts(JSContext *ctx)
     }
 }
 
+// 设置 obj 的 has_immutable_prototype 的值为 TRUE
 static void JS_SetImmutablePrototype(JSContext *ctx, JSValueConst obj)
 {
     JSObject *p;

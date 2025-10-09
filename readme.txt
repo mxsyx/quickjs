@@ -1,1 +1,3 @@
-The main documentation is in doc/quickjs.pdf or doc/quickjs.html.
+从 JSShape 创建 JSObject
+
+可 GC: JSShape JSObject

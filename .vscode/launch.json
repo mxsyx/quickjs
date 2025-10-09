@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug QuickJS",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/qjs",
+      "args": ["-e", "console.log(1+1)"],
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}
