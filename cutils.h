@@ -85,6 +85,7 @@ static inline int max_int(int a, int b)
         return b;
 }
 
+/* 返回最小值(int) */
 static inline int min_int(int a, int b)
 {
     if (a < b)
@@ -126,6 +127,7 @@ static inline int64_t min_int64(int64_t a, int64_t b)
 }
 
 /* WARNING: undefined if a = 0 */
+// 返回一个 32 位无符号整数从最高位（bit 31）开始连续 0 的个数
 static inline int clz32(unsigned int a)
 {
     return __builtin_clz(a);
@@ -303,21 +305,25 @@ static inline BOOL is_surrogate(uint32_t c)
     return (c >> 11) == (0xD800 >> 11); // 0xD800-0xDFFF
 }
 
+// 是否是 utf16 的高代理项
 static inline BOOL is_hi_surrogate(uint32_t c)
 {
     return (c >> 10) == (0xD800 >> 10); // 0xD800-0xDBFF
 }
 
+// 是否是 utf16 的低代理项
 static inline BOOL is_lo_surrogate(uint32_t c)
 {
     return (c >> 10) == (0xDC00 >> 10); // 0xDC00-0xDFFF
 }
 
+// 获取 utf16 的高代理项
 static inline uint32_t get_hi_surrogate(uint32_t c)
 {
     return (c >> 10) - (0x10000 >> 10) + 0xD800;
 }
 
+// 获取 utf16 的低代理项
 static inline uint32_t get_lo_surrogate(uint32_t c)
 {
     return (c & 0x3FF) | 0xDC00;
@@ -380,7 +386,7 @@ static inline uint16_t tofp16(double d)
     uint64_t a, addend;
     uint32_t v, sgn;
     int shift;
-    
+
     a = float64_as_uint64(d);
     sgn = a >> 63;
     a = a & 0x7fffffffffffffff;

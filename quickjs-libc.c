@@ -2319,7 +2319,7 @@ static int js_os_poll(JSContext *ctx)
         list_empty(&ts->port_list)) {
         return -1; /* no more events */
     }
-    
+
     if (!list_empty(&ts->os_timers)) {
         cur_time = get_time_ms();
         min_delay = 10000;
@@ -3589,7 +3589,7 @@ static JSValue js_worker_ctor(JSContext *ctx, JSValueConst new_target,
         goto oom_fail;
 
     args->strip_flags = JS_GetStripInfo(rt);
-    
+
     obj = js_worker_ctor_internal(ctx, new_target,
                                   args->send_pipe, args->recv_pipe);
     if (JS_IsException(obj))
@@ -3907,7 +3907,7 @@ static JSValue js_print(JSContext *ctx, JSValueConst this_val,
 {
     int i;
     JSValueConst v;
-    
+
     for(i = 0; i < argc; i++) {
         if (i != 0)
             putchar(' ');
@@ -3972,6 +3972,7 @@ void js_std_add_helpers(JSContext *ctx, int argc, char **argv)
     JS_FreeValue(ctx, global_obj);
 }
 
+// 初始化线程状态, 初始化 JSSharedArrayBufferFunctions
 void js_std_init_handlers(JSRuntime *rt)
 {
     JSThreadState *ts;

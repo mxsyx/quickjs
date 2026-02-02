@@ -203,7 +203,8 @@ void dbuf_free(DynBuf *s)
     memset(s, 0, sizeof(*s));
 }
 
-/* Note: at most 31 bits are encoded. At most UTF8_CHAR_LEN_MAX bytes
+/* 将单个 unicode 码转为 uft8 编码, 返回 uft8 的字节数
+ * Note: at most 31 bits are encoded. At most UTF8_CHAR_LEN_MAX bytes
    are output. */
 int unicode_to_utf8(uint8_t *buf, unsigned int c)
 {
@@ -244,12 +245,14 @@ static const unsigned int utf8_min_code[5] = {
     0x80, 0x800, 0x10000, 0x00200000, 0x04000000,
 };
 
+// unicode 首字节长度标志 11111 1111 111 11 1
 static const unsigned char utf8_first_code_mask[5] = {
     0x1f, 0xf, 0x7, 0x3, 0x1,
 };
 
 /* return -1 if error. *pp is not updated in this case. max_len must
    be >= 1. The maximum length for a UTF8 byte sequence is 6 bytes. */
+// 将 utf8 编码转为 unicode 码
 int unicode_from_utf8(const uint8_t *p, int max_len, const uint8_t **pp)
 {
     int l, c, b, i;

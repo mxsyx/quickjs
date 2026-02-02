@@ -71,7 +71,7 @@ typedef uint32_t JSAtom;
 #endif
 
 #define JS_SHORT_BIG_INT_BITS JS_LIMB_BITS
-    
+
 enum {
     /* all tags with a reference count are negative */
     JS_TAG_FIRST       = -9, /* first negative tag */
@@ -248,6 +248,7 @@ typedef struct JSValue {
 
 #define JS_NAN (JSValue){ .u.float64 = JS_FLOAT64_NAN, JS_TAG_FLOAT64 }
 
+// 从 double 创建 Value
 static inline JSValue __JS_NewFloat64(JSContext *ctx, double d)
 {
     JSValue v;
@@ -545,12 +546,13 @@ int JS_NewClass(JSRuntime *rt, JSClassID class_id, const JSClassDef *class_def);
 int JS_IsRegisteredClass(JSRuntime *rt, JSClassID class_id);
 
 /* value handling */
-
+// 创建 boolean 类型的 Value
 static js_force_inline JSValue JS_NewBool(JSContext *ctx, JS_BOOL val)
 {
     return JS_MKVAL(JS_TAG_BOOL, (val != 0));
 }
 
+/* 创建 int32 类型的 Value */
 static js_force_inline JSValue JS_NewInt32(JSContext *ctx, int32_t val)
 {
     return JS_MKVAL(JS_TAG_INT, val);
@@ -561,6 +563,7 @@ static js_force_inline JSValue JS_NewCatchOffset(JSContext *ctx, int32_t val)
     return JS_MKVAL(JS_TAG_CATCH_OFFSET, val);
 }
 
+// 从 int64 创建 int32/float64 类型的 Value
 static js_force_inline JSValue JS_NewInt64(JSContext *ctx, int64_t val)
 {
     JSValue v;
@@ -572,6 +575,7 @@ static js_force_inline JSValue JS_NewInt64(JSContext *ctx, int64_t val)
     return v;
 }
 
+// 从 uint32 创建 int32/float64 类型的 Value
 static js_force_inline JSValue JS_NewUint32(JSContext *ctx, uint32_t val)
 {
     JSValue v;
@@ -605,54 +609,64 @@ static js_force_inline JSValue JS_NewFloat64(JSContext *ctx, double d)
     return __JS_NewFloat64(ctx, d);
 }
 
+// 判断 Value 是否是 number
 static inline JS_BOOL JS_IsNumber(JSValueConst v)
 {
     int tag = JS_VALUE_GET_TAG(v);
     return tag == JS_TAG_INT || JS_TAG_IS_FLOAT64(tag);
 }
 
+// 判断 Value 是否是 bigint
 static inline JS_BOOL JS_IsBigInt(JSContext *ctx, JSValueConst v)
 {
     int tag = JS_VALUE_GET_TAG(v);
     return tag == JS_TAG_BIG_INT || tag == JS_TAG_SHORT_BIG_INT;
 }
 
+// 判断 Value 是否是 boolean
 static inline JS_BOOL JS_IsBool(JSValueConst v)
 {
     return JS_VALUE_GET_TAG(v) == JS_TAG_BOOL;
 }
 
+// 判断 Value 是否是 null
 static inline JS_BOOL JS_IsNull(JSValueConst v)
 {
     return JS_VALUE_GET_TAG(v) == JS_TAG_NULL;
 }
 
+// 判断 Value 是否是 undefined
 static inline JS_BOOL JS_IsUndefined(JSValueConst v)
 {
     return JS_VALUE_GET_TAG(v) == JS_TAG_UNDEFINED;
 }
 
+// 判断 Value 是否是 Exception
 static inline JS_BOOL JS_IsException(JSValueConst v)
 {
     return js_unlikely(JS_VALUE_GET_TAG(v) == JS_TAG_EXCEPTION);
 }
 
+// 判断 Value 是否是 Uninitialized
 static inline JS_BOOL JS_IsUninitialized(JSValueConst v)
 {
     return js_unlikely(JS_VALUE_GET_TAG(v) == JS_TAG_UNINITIALIZED);
 }
 
+// 判断 Value 是否是 string
 static inline JS_BOOL JS_IsString(JSValueConst v)
 {
     return JS_VALUE_GET_TAG(v) == JS_TAG_STRING ||
         JS_VALUE_GET_TAG(v) == JS_TAG_STRING_ROPE;
 }
 
+// 判断 Value 是否是 symbol
 static inline JS_BOOL JS_IsSymbol(JSValueConst v)
 {
     return JS_VALUE_GET_TAG(v) == JS_TAG_SYMBOL;
 }
 
+// 判断 Value 是否是 object
 static inline JS_BOOL JS_IsObject(JSValueConst v)
 {
     return JS_VALUE_GET_TAG(v) == JS_TAG_OBJECT;
@@ -672,6 +686,8 @@ JSValue __js_printf_like(2, 3) JS_ThrowInternalError(JSContext *ctx, const char 
 JSValue JS_ThrowOutOfMemory(JSContext *ctx);
 
 void __JS_FreeValue(JSContext *ctx, JSValue v);
+
+/* 将 Value 的引用计数减 1 */
 static inline void JS_FreeValue(JSContext *ctx, JSValue v)
 {
     if (JS_VALUE_HAS_REF_COUNT(v)) {
@@ -717,6 +733,8 @@ JS_BOOL JS_SameValueZero(JSContext *ctx, JSValueConst op1, JSValueConst op2);
 
 int JS_ToBool(JSContext *ctx, JSValueConst val); /* return -1 for JS_EXCEPTION */
 int JS_ToInt32(JSContext *ctx, int32_t *pres, JSValueConst val);
+
+/* 将任意值转为 uint32(调用 JS_ToInt32) */
 static inline int JS_ToUint32(JSContext *ctx, uint32_t *pres, JSValueConst val)
 {
     return JS_ToInt32(ctx, (int32_t*)pres, val);
@@ -738,10 +756,14 @@ JSValue JS_NewAtomString(JSContext *ctx, const char *str);
 JSValue JS_ToString(JSContext *ctx, JSValueConst val);
 JSValue JS_ToPropertyKey(JSContext *ctx, JSValueConst val);
 const char *JS_ToCStringLen2(JSContext *ctx, size_t *plen, JSValueConst val1, JS_BOOL cesu8);
+
+/* 将 String 转为 C char*, 并回写 char* 的长度  */
 static inline const char *JS_ToCStringLen(JSContext *ctx, size_t *plen, JSValueConst val1)
 {
     return JS_ToCStringLen2(ctx, plen, val1, 0);
 }
+
+/* 将 String 转为 C char*, 不回写 char* 的长度  */
 static inline const char *JS_ToCString(JSContext *ctx, JSValueConst val1)
 {
     return JS_ToCStringLen2(ctx, NULL, val1, 0);
@@ -765,6 +787,8 @@ JSValue JS_NewDate(JSContext *ctx, double epoch_ms);
 JSValue JS_GetPropertyInternal(JSContext *ctx, JSValueConst obj,
                                JSAtom prop, JSValueConst receiver,
                                JS_BOOL throw_ref_error);
+
+/* 获取 Object 的属性, this 为 Object 本身, 不抛出引用错误  */
 static js_force_inline JSValue JS_GetProperty(JSContext *ctx, JSValueConst this_obj,
                                               JSAtom prop)
 {
