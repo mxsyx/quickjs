@@ -1330,6 +1330,7 @@ void *js_malloc_rt(JSRuntime *rt, size_t size)
     return rt->mf.js_malloc(&rt->malloc_state, size);
 }
 
+/* 释放 ptr 所占内存 */
 void js_free_rt(JSRuntime *rt, void *ptr)
 {
     rt->mf.js_free(&rt->malloc_state, ptr);
@@ -2080,6 +2081,7 @@ void JS_FreeRuntime(JSRuntime *rt)
     }
 }
 
+/* 在指定 JSRuntime 上创建并初始化一个最基础的 JSContext 执行上下文，并只安装最基础的内建对象原型体系 */
 JSContext *JS_NewContextRaw(JSRuntime *rt)
 {
     JSContext *ctx;
@@ -2144,6 +2146,7 @@ void JS_SetContextOpaque(JSContext *ctx, void *opaque)
 
 /* set the new value and free the old value after (freeing the value
    can reallocate the object data) */
+/* 为 JSValue 设置新的值并释放原来的值 */
 static inline void set_value(JSContext *ctx, JSValue *pval, JSValue new_val)
 {
     JSValue old_val;
@@ -2374,7 +2377,7 @@ static inline int is_num(int c)
 }
 
 /* return TRUE if the string is a number n with 0 <= n <= 2^32-1 */
-// 判断 p 是否为纯数字字符串(不能以0开头), 将解析后的值赋值 pval
+/* 判断 p 是否为纯数字字符串(不能以0开头), 将解析后的值赋值 pval */
 static inline BOOL is_num_string(uint32_t *pval, const JSString *p)
 {
     uint32_t n;
@@ -3107,13 +3110,13 @@ static JSValue __JS_AtomToValue(JSContext *ctx, JSAtom atom, BOOL force_string)
     }
 }
 
-// 将 Atom 转为 Value
+/* 将 Atom 转为 JSValue */
 JSValue JS_AtomToValue(JSContext *ctx, JSAtom atom)
 {
     return __JS_AtomToValue(ctx, atom, FALSE);
 }
 
-// 将 Atom 转为 String
+/* 将 Atom 转为 String */
 JSValue JS_AtomToString(JSContext *ctx, JSAtom atom)
 {
     return __JS_AtomToValue(ctx, atom, TRUE);
@@ -3121,6 +3124,7 @@ JSValue JS_AtomToString(JSContext *ctx, JSAtom atom)
 
 /* return TRUE if the atom is an array index (i.e. 0 <= index <=
    2^32-2 and return its value */
+/* 判断 atom 是否是数组索引(数字或可转换为数字的纯数字字符串), 0 <= index <=2^32-2  */
 static BOOL JS_AtomIsArrayIndex(JSContext *ctx, uint32_t *pval, JSAtom atom)
 {
     if (__JS_AtomIsTaggedInt(atom)) {
@@ -3144,10 +3148,11 @@ static BOOL JS_AtomIsArrayIndex(JSContext *ctx, uint32_t *pval, JSAtom atom)
     }
 }
 
-/* 将 Atom 转为 Number */
+
 /* This test must be fast if atom is not a numeric index (e.g. a
    method name). Return JS_UNDEFINED if not a numeric
    index. JS_EXCEPTION can also be returned. */
+/* 将 Atom 转为 Number */
 static JSValue JS_AtomIsNumericIndex1(JSContext *ctx, JSAtom atom)
 {
     JSRuntime *rt = ctx->rt;
@@ -3199,8 +3204,8 @@ static JSValue JS_AtomIsNumericIndex1(JSContext *ctx, JSAtom atom)
     }
 }
 
-/* 判断 Atom 是数字类型的 */
 /* return -1 if exception or TRUE/FALSE */
+/* 判断 Atom 是数字类型的 */
 static int JS_AtomIsNumericIndex(JSContext *ctx, JSAtom atom)
 {
     JSValue num;
@@ -3297,6 +3302,7 @@ static JSAtom js_atom_concat_num(JSContext *ctx, JSAtom name, uint32_t n)
     return js_atom_concat_str(ctx, name, buf);
 }
 
+/* 判断 JSString 是否是空字符串 */
 static inline BOOL JS_IsEmptyString(JSValueConst v)
 {
     return JS_VALUE_GET_TAG(v) == JS_TAG_STRING && JS_VALUE_GET_STRING(v)->len == 0;
@@ -3495,7 +3501,7 @@ typedef struct StringBuffer {
    if string_buffer_init() or another string_buffer function returns an error.
    If the error_status is set, string_buffer_end() returns JS_EXCEPTION.
  */
-// 初始化 StrinBuffer
+/* 初始化 StrinBuffer */
 static int string_buffer_init2(JSContext *ctx, StringBuffer *s, int size,
                                int is_wide)
 {
@@ -3673,7 +3679,7 @@ static int string_getc(const JSString *p, int *pidx)
     return c;
 }
 
-// 向 StringBuffer 写入字符串
+/* 向 StringBuffer 写入 8bit 字符串 */
 static int string_buffer_write8(StringBuffer *s, const uint8_t *p, int len)
 {
     int i;
@@ -3726,6 +3732,7 @@ static int string_buffer_puts8(StringBuffer *s, const char *str)
     return string_buffer_write8(s, (const uint8_t *)str, strlen(str));
 }
 
+/* 将 JSString concat 到 StringBuffer 上 */
 static int string_buffer_concat(StringBuffer *s, const JSString *p,
                                 uint32_t from, uint32_t to)
 {
@@ -3803,7 +3810,7 @@ static int string_buffer_fill(StringBuffer *s, int c, int count)
     return 0;
 }
 
-// 从 StringBuffer 创建 String 的 Value
+/* 从 StringBuffer 创建指向 JSString 的 JSValue */
 static JSValue string_buffer_end(StringBuffer *s)
 {
     JSString *str;
@@ -3895,6 +3902,7 @@ JSValue JS_NewStringLen(JSContext *ctx, const char *buf, size_t buf_len)
     return JS_EXCEPTION;
 }
 
+/* 通过 StringBuffer 拼接 3 个字符串, str2为 JSString 类型, str2 会被 free */
 static JSValue JS_ConcatString3(JSContext *ctx, const char *str1,
                                 JSValue str2, const char *str3)
 {
@@ -3926,6 +3934,7 @@ static JSValue JS_ConcatString3(JSContext *ctx, const char *str1,
     return JS_EXCEPTION;
 }
 
+/* 把一个 C 字符串先注册/查找到 Atom 表中，再把这个 Atom 转成 JSString 返回，最后释放临时 Atom 引用 */
 JSValue JS_NewAtomString(JSContext *ctx, const char *str)
 {
     JSAtom atom = JS_NewAtom(ctx, str);
@@ -4090,8 +4099,8 @@ static int js_string_memcmp(const JSString *p1, int pos1, const JSString *p2,
     return res;
 }
 
-/* 比较两个 String 的大小, 长度相同时较长的大 */
 /* return < 0, 0 or > 0 */
+/* 比较两个 JSString 的大小, 长度相同时较长的大 */
 static int js_string_compare(JSContext *ctx,
                              const JSString *p1, const JSString *p2)
 {
@@ -4109,6 +4118,8 @@ static int js_string_compare(JSContext *ctx,
     return res;
 }
 
+/* 把 JSString 中从 offset 开始、长度为 len 的字符片段复制到 uint16_t 目标缓冲区中，
+    并统一输出为 UTF-16/16-bit 字符形式 */
 static void copy_str16(uint16_t *dst, const JSString *p, int offset, int len)
 {
     if (p->is_wide_char) {
@@ -4122,6 +4133,7 @@ static void copy_str16(uint16_t *dst, const JSString *p, int offset, int len)
     }
 }
 
+/* 将两个 JSString 按顺序拼接成一个新的字符串对象，并根据两者是否包含宽字符自动选择 8-bit 或 16-bit 存储格式 */
 static JSValue JS_ConcatString1(JSContext *ctx,
                                 const JSString *p1, const JSString *p2)
 {
@@ -4147,6 +4159,8 @@ static JSValue JS_ConcatString1(JSContext *ctx,
     return JS_MKPTR(JS_TAG_STRING, p);
 }
 
+/* 当左侧字符串没有被共享、内存容量足够、字符编码兼容时，直接把右侧字符串追加到左侧字符串的缓冲区里；
+    否则返回失败，让外层走正常的新建字符串或 rope 拼接逻辑。  */
 static BOOL JS_ConcatStringInPlace(JSContext *ctx, JSString *p1, JSValueConst op2) {
     if (JS_VALUE_GET_TAG(op2) == JS_TAG_STRING) {
         JSString *p2 = JS_VALUE_GET_STRING(op2);
@@ -4183,6 +4197,7 @@ static BOOL JS_ConcatStringInPlace(JSContext *ctx, JSString *p1, JSValueConst op
     return FALSE;
 }
 
+/* 把两个字符串拼接成一个新字符串值，优先尝试在左侧原字符串上原地扩容拼接，失败时再分配新字符串，op1 和 op2 会被 free */
 static JSValue JS_ConcatString2(JSContext *ctx, JSValue op1, JSValue op2)
 {
     JSValue ret;
@@ -4344,6 +4359,8 @@ static JSValue js_linearize_string_rope(JSContext *ctx, JSValue rope)
 static JSValue js_rebalancee_string_rope(JSContext *ctx, JSValueConst rope);
 
 /* op1 and op2 must be strings or string ropes */
+/* 把两个 JSString/JSStringRope 组合成一个新的 JSStringRope，记录总长度、字符宽度和树深度，
+    并在 rope 树过深时触发重平衡，避免拼接链过长影响后续访问性能。 */
 static JSValue js_new_string_rope(JSContext *ctx, JSValue op1, JSValue op2)
 {
     uint32_t len;
@@ -4518,6 +4535,8 @@ static JSValue js_rebalancee_string_rope(JSContext *ctx, JSValueConst rope)
 
 /* op1 and op2 are converted to strings. For convenience, op1 or op2 =
    JS_EXCEPTION are accepted and return JS_EXCEPTION.  */
+/* 实现 JavaScript 字符串 + 拼接，先按 ECMA 语义把非字符串操作数转成字符串，再根据字符串长度和 rope 结构选择
+    普通拷贝拼接、原地拼接优化，或创建 rope 延迟拼接，以兼顾语义正确性和性能。 op1 和 op2 会被 free */
 static JSValue JS_ConcatString(JSContext *ctx, JSValue op1, JSValue op2)
 {
     JSString *p1, *p2;
@@ -4596,7 +4615,7 @@ static JSValue JS_ConcatString(JSContext *ctx, JSValue op1, JSValue op2)
 }
 
 /* Shape support */
-// 计算 shape 的大小： 哈希表大小 + JSShape 固定大小 + 属性大小
+/* 计算 shape 的大小： 哈希表大小 + JSShape 固定大小 + 属性大小 */
 static inline size_t get_shape_size(size_t hash_size, size_t prop_size)
 {
     return hash_size * sizeof(uint32_t) + sizeof(JSShape) +
@@ -4621,7 +4640,7 @@ static inline void *get_alloc_from_shape(JSShape *sh)
     return prop_hash_end(sh) - ((intptr_t)sh->prop_hash_mask + 1);
 }
 
-// 返回 sh->prop
+/*  返回 sh->prop */
 static inline JSShapeProperty *get_shape_prop(JSShape *sh)
 {
     return sh->prop;
@@ -4689,7 +4708,7 @@ static int resize_shape_hash(JSRuntime *rt, int new_shape_hash_bits)
     return 0;
 }
 
-// 将 Shape 链接到运行时的 Shape 哈希表中
+/* 将 JSShape 链接到运行时的 shape 哈希表中  */
 static void js_shape_hash_link(JSRuntime *rt, JSShape *sh)
 {
     uint32_t h;
@@ -5205,7 +5224,7 @@ static JSValue JS_NewObjectFromShape(JSContext *ctx, JSShape *sh, JSClassID clas
     return JS_MKPTR(JS_TAG_OBJECT, p);
 }
 
-// 返回 JSValue 指向的 JSObject 指针
+/* 返回 JSValue 指向的 JSObject 指针 */
 static JSObject *get_proto_obj(JSValueConst proto_val)
 {
     if (JS_VALUE_GET_TAG(proto_val) != JS_TAG_OBJECT)
@@ -5215,7 +5234,7 @@ static JSObject *get_proto_obj(JSValueConst proto_val)
 }
 
 /* WARNING: proto must be an object or JS_NULL */
-// 以 proto_val 为原型, 创建 class_id 类型的 JSObject
+/* 创建以 proto_val 原型, class_id 类型的 JSObject */
 JSValue JS_NewObjectProtoClass(JSContext *ctx, JSValueConst proto_val,
                                JSClassID class_id)
 {
@@ -5286,7 +5305,7 @@ JSValue JS_NewObjectClass(JSContext *ctx, int class_id)
     return JS_NewObjectProtoClass(ctx, ctx->class_proto[class_id], class_id);
 }
 
-// 以 proto 为原型新建对象
+/* 创建以 proto 为原型的对象 */
 JSValue JS_NewObjectProto(JSContext *ctx, JSValueConst proto)
 {
     return JS_NewObjectProtoClass(ctx, proto, JS_CLASS_OBJECT);
@@ -5298,13 +5317,14 @@ JSValue JS_NewArray(JSContext *ctx)
                                  JS_CLASS_ARRAY);
 }
 
+/* 创建以 ctx->class_proto[JS_CLASS_OBJECT] 为原型, JS_CLASS_OBJECT 类型的 JSObject */
 JSValue JS_NewObject(JSContext *ctx)
 {
     /* inline JS_NewObjectClass(ctx, JS_CLASS_OBJECT); */
     return JS_NewObjectProtoClass(ctx, ctx->class_proto[JS_CLASS_OBJECT], JS_CLASS_OBJECT);
 }
 
-// 设置函数原型对象的 name 与 length 属性
+/* 设置函数原型对象的 name 与 length 属性 */
 static void js_function_set_properties(JSContext *ctx, JSValueConst func_obj,
                                        JSAtom name, int len)
 {
@@ -5396,6 +5416,8 @@ static int js_method_set_properties(JSContext *ctx, JSValueConst func_obj,
 }
 
 /* Note: at least 'length' arguments will be readable in 'argv' */
+/* 把一个 C 函数包装成一个 JavaScript 可调用的 Function 对象。把底层 C 函数指针、调用签名、参数长度、函数名、magic 值、Realm
+    和构造器标记都封装进 JS 对象中，使它可以作为 JavaScript 函数被调用，必要时也可以作为构造器被 new 调用。 */
 static JSValue JS_NewCFunction3(JSContext *ctx, JSCFunction *func,
                                 const char *name,
                                 int length, JSCFunctionEnum cproto, int magic,
@@ -5427,6 +5449,7 @@ static JSValue JS_NewCFunction3(JSContext *ctx, JSCFunction *func,
 }
 
 /* Note: at least 'length' arguments will be readable in 'argv' */
+/* 以 ctx->function_proto 为原型调用 JS_NewCFunction3  */
 JSValue JS_NewCFunction2(JSContext *ctx, JSCFunction *func,
                          const char *name,
                          int length, JSCFunctionEnum cproto, int magic)
@@ -5581,7 +5604,7 @@ static force_inline JSShapeProperty *find_own_property1(JSObject *p,
     return NULL;
 }
 
-// 查找 Shape 中名为 Atom 的 ShapeProperty, 将找到的属性地址写回 ppr
+/* 查找 JSShape 中名为 atom 的 JSShapeProperty, 将找到的属性值地址写回 ppr */
 static JSShapeProperty *find_own_property(JSProperty **ppr,
                                                        JSObject *p,
                                                        JSAtom atom)
@@ -5611,7 +5634,7 @@ static void set_cycle_flag(JSContext *ctx, JSValueConst obj)
 {
 }
 
-/*  */
+/* 释放 val_ref */
 static void free_var_ref(JSRuntime *rt, JSVarRef *var_ref)
 {
     if (var_ref) {
@@ -5992,6 +6015,7 @@ static void add_gc_object(JSRuntime *rt, JSGCObjectHeader *h,
     list_add_tail(&h->link, &rt->gc_obj_list);
 }
 
+/* 将 GCObjectHeader 从 GC 链表中移除 */
 static void remove_gc_object(JSGCObjectHeader *h)
 {
     list_del(&h->link);
@@ -7552,7 +7576,7 @@ static JSAutoInitFunc *js_autoinit_func_table[] = {
 };
 
 /* warning: 'prs' is reallocated after it */
-/* 初始化属性值 */
+/* 初始化 AutoInit 属性值 */
 static int JS_AutoInitProperty(JSContext *ctx, JSObject *p, JSAtom prop,
                                JSProperty *pr, JSShapeProperty *prs)
 {
@@ -7586,7 +7610,7 @@ static int JS_AutoInitProperty(JSContext *ctx, JSObject *p, JSAtom prop,
     return 0;
 }
 
-/* 获取 Object 的内部属性 */
+/* 获取 JSObject 的属性 */
 JSValue JS_GetPropertyInternal(JSContext *ctx, JSValueConst obj,
                                JSAtom prop, JSValueConst this_obj,
                                BOOL throw_ref_error)
@@ -7929,6 +7953,7 @@ static int JS_CheckBrand(JSContext *ctx, JSValueConst obj, JSValueConst func)
     return (prs != NULL);
 }
 
+/* 获取 String 包装对象内部保存的原始字符串长度，如 new String("abc").length */
 static uint32_t js_string_obj_get_length(JSContext *ctx,
                                          JSValueConst obj)
 {
@@ -7975,6 +8000,24 @@ static void js_free_prop_enum(JSContext *ctx, JSPropertyEnum *tab, uint32_t len)
 
 /* return < 0 in case if exception, 0 if OK. ptab and its atoms must
    be freed by the user. */
+/* 实现了 object.getOwnPropertyNames 逻辑：按 ECMA 规定收集对象自身属性 key，并按“数组索引 → 字符串属性 → Symbol 属性”的顺序返回，
+    同时处理 array/string/exotic object 的特殊自有属性。 */
+/*
+    统计数量
+        普通对象属性来自 p->shape
+        fast array 额外补数组下标 0...length-1
+        String object 额外补字符下标 0...length-1
+        其他 exotic object 通过 get_own_property_names 拿 key
+    分区填充
+        数组索引 key 放前面：num_keys_count
+        普通字符串 key 放中间：str_keys_count
+        Symbol key 放后面：sym_keys_count
+        exotic key 放最后追加
+    排序与返回
+        数组索引属性按数值升序排序
+        字符串属性按创建/shape 顺序
+        Symbol 属性按创建/shape 顺序
+*/
 static int __exception JS_GetOwnPropertyNamesInternal(JSContext *ctx,
                                                       JSPropertyEnum **ptab,
                                                       uint32_t *plen,
@@ -8037,6 +8080,7 @@ static int __exception JS_GetOwnPropertyNamesInternal(JSContext *ctx,
                 num_keys_count += p->u.array.count;
             }
         } else if (p->class_id == JS_CLASS_STRING) {
+            /* ECMAScript 规定 String 对象是 exotic object，它会把字符串的每个字符“虚拟地暴露”为一个自有属性 */
             if (flags & JS_GPN_STRING_MASK) {
                 num_keys_count += js_string_obj_get_length(ctx, JS_MKPTR(JS_TAG_OBJECT, p));
             }
@@ -8077,7 +8121,7 @@ static int __exception JS_GetOwnPropertyNamesInternal(JSContext *ctx,
     }
 
     /* fill them */
-
+    /* 无符号整数加法溢出检查 */
     atom_count = num_keys_count + str_keys_count;
     if (atom_count < str_keys_count)
         goto add_overflow;
@@ -8194,6 +8238,8 @@ int JS_GetOwnPropertyNames(JSContext *ctx, JSPropertyEnum **ptab,
 /* Return -1 if exception,
    FALSE if the property does not exist, TRUE if it exists. If TRUE is
    returned, the property descriptor 'desc' is filled present. */
+/* 查找并返回对象自身属性的属性描述符，必要时处理访问器、var_ref、auto-init、fast array 索引属性
+    以及 exotic object 的自定义 get_own_property 逻辑。 */
 static int JS_GetOwnPropertyInternal(JSContext *ctx, JSPropertyDescriptor *desc,
                                      JSObject *p, JSAtom prop)
 {
@@ -8283,6 +8329,7 @@ int JS_GetOwnProperty(JSContext *ctx, JSPropertyDescriptor *desc,
 }
 
 /* return -1 if exception (exotic object only) or TRUE/FALSE */
+/* 判断一个对象是否可扩展 Object.isExtensible */
 int JS_IsExtensible(JSContext *ctx, JSValueConst obj)
 {
     JSObject *p;
@@ -8300,6 +8347,8 @@ int JS_IsExtensible(JSContext *ctx, JSValueConst obj)
 }
 
 /* return -1 if exception (exotic object only) or TRUE/FALSE */
+/* 把一个普通对象标记为不可扩展，即禁止后续再添加新属性；如果是 exotic object，
+    则优先调用该对象类型自定义的 prevent_extensions 逻辑 */
 int JS_PreventExtensions(JSContext *ctx, JSValueConst obj)
 {
     JSObject *p;
@@ -8368,7 +8417,7 @@ static JSAtom js_symbol_to_atom(JSContext *ctx, JSValue val)
 }
 
 /* return JS_ATOM_NULL in case of exception */
-/* 将 Value 转为 Atom */
+/* 将 JSValue 转为 JSAtom */
 JSAtom JS_ValueToAtom(JSContext *ctx, JSValueConst val)
 {
     JSAtom atom;
@@ -8542,7 +8591,8 @@ JSValue JS_GetPropertyStr(JSContext *ctx, JSValueConst this_obj,
 
 /* Note: the property value is not initialized. Return NULL if memory
    error. */
-// 为对象添加属性, 添加的属性未初始化
+/* 给对象 p 添加一个名为 prop、属性标志为 prop_flags 的新属性槽位，同时尽量复用已有 hashed shape；
+    如果无法复用就按需克隆/扩展 shape，最后返回新属性对应的 JSProperty* */
 static JSProperty *add_property(JSContext *ctx,
                                 JSObject *p, JSAtom prop, int prop_flags)
 {
@@ -8586,6 +8636,8 @@ static JSProperty *add_property(JSContext *ctx,
 
 /* can be called on Array or Arguments objects. return < 0 if
    memory alloc error. */
+/* 当数组不能继续使用 fast array 优化存储时，把连续存储在 p->u.array.u.values 中的数组元素，
+    逐个搬迁为普通属性 "0"、"1"、"2"……，然后释放 fast array 存储并关闭 p->fast_array 标记。 */
 static no_inline __exception int convert_fast_array_to_array(JSContext *ctx,
                                                              JSObject *p)
 {
@@ -8732,6 +8784,7 @@ static int call_setter(JSContext *ctx, JSObject *setter,
 }
 
 /* set the array length and remove the array elements if necessary. */
+/* 设置数组的长度, 移除超出长度的元素 */
 static int set_array_length(JSContext *ctx, JSObject *p, JSValue val,
                             int flags)
 {
@@ -8823,6 +8876,7 @@ static int set_array_length(JSContext *ctx, JSObject *p, JSValue val,
 }
 
 /* return -1 if exception */
+/* 为数组扩展内存 */
 static int expand_fast_array(JSContext *ctx, JSObject *p, uint32_t new_len)
 {
     uint32_t new_size;
@@ -8841,6 +8895,7 @@ static int expand_fast_array(JSContext *ctx, JSObject *p, uint32_t new_len)
 
 /* Preconditions: 'p' must be of class JS_CLASS_ARRAY, p->fast_array =
    TRUE and p->extensible = TRUE */
+/* 向快速数组尾部追加元素 */
 static int add_fast_array_element(JSContext *ctx, JSObject *p,
                                   JSValue val, int flags)
 {
@@ -8908,6 +8963,9 @@ static void js_free_desc(JSContext *ctx, JSPropertyDescriptor *desc)
    the new property is not added and an error is raised. 'this_obj' is
    the receiver. If obj != this_obj, then obj must be an object
    (Reflect.set case). */
+/* 所有对象属性赋值操作的核心入口 */
+/* this_obj 是 receiver, 用于实现 Reflect Proxy 等, 可以不是 Object */
+/* val 会被 free */
 int JS_SetPropertyInternal(JSContext *ctx, JSValueConst obj,
                            JSAtom prop, JSValue val, JSValueConst this_obj, int flags)
 {
@@ -8920,6 +8978,7 @@ int JS_SetPropertyInternal(JSContext *ctx, JSValueConst obj,
 #if 0
     printf("JS_SetPropertyInternal: "); print_atom(ctx, prop); printf("\n");
 #endif
+    /* 找到 receiver, receiver 可以为空, 但 receiver 与 obj 不能同时为空 */
     tag = JS_VALUE_GET_TAG(this_obj);
     if (unlikely(tag != JS_TAG_OBJECT)) {
         if (JS_VALUE_GET_TAG(obj) == JS_TAG_OBJECT) {
@@ -8985,6 +9044,24 @@ int JS_SetPropertyInternal(JSContext *ctx, JSValueConst obj,
         }
     }
 
+    /* obj != this_obj or prs == NULL */
+    /* 赋值时，不是马上创建属性，而是先看原型链上有没有东西会影响这次赋值。 */
+    /*
+     for (;;) {
+       1. 如果当前对象 p1 是 exotic object
+          - fast array / typed array 特殊处理
+          - custom exotic set_property / get_own_property 特殊处理
+
+       2. 查 p1 自身属性 prop
+          - 如果是 setter：调用 setter，结束
+          - 如果是 autoinit：初始化后重试
+          - 如果是 readonly：报错或返回 false
+          - 如果是 writable data property：停止查找，后面写 Receiver
+
+       3. p1 = p1->prototype
+          - 如果原型链结束：跳出，后面创建新属性
+     }
+    */
     for(;;) {
         if (p1->is_exotic) {
             if (p1->fast_array) {
@@ -9008,6 +9085,7 @@ int JS_SetPropertyInternal(JSContext *ctx, JSValueConst obj,
                             return -1;
                         }
                     typed_array_oob:
+                        /* 原型链上的 TypedArray numeric index 越界属性，不应该导致在 Receiver 上创建普通属性 */
                         if (p == p1) {
                             /* must convert the argument even if out of bound access */
                             if (p1->class_id == JS_CLASS_BIG_INT64_ARRAY ||
@@ -9086,6 +9164,7 @@ int JS_SetPropertyInternal(JSContext *ctx, JSValueConst obj,
             break;
 
     retry2:
+        /* 在原型链上找到了 prop */
         prs = find_own_property(&pr, p1, prop);
         if (prs) {
             if ((prs->flags & JS_PROP_TMASK) == JS_PROP_GETSET) {
@@ -9103,6 +9182,7 @@ int JS_SetPropertyInternal(JSContext *ctx, JSValueConst obj,
         }
     }
 
+    /* 找不到已有属性的前提下不允许创建属性 */
     if (unlikely(flags & JS_PROP_NO_ADD)) {
         JS_FreeValue(ctx, val);
         JS_ThrowReferenceErrorNotDefined(ctx, prop);
@@ -9149,6 +9229,8 @@ int JS_SetPropertyInternal(JSContext *ctx, JSValueConst obj,
             JS_FreeValue(ctx, val);
             return ret;
         }
+        // 当 obj != this_obj 时，真正写入前先检查 Receiver 上是否已经有同名自有属性
+        // 如果有，就按这个自有属性的描述符决定能不能写。
         if (ret) {
             if (desc.flags & JS_PROP_GETSET) {
                 JS_FreeValue(ctx, desc.getter);
@@ -9364,6 +9446,7 @@ int JS_SetPropertyStr(JSContext *ctx, JSValueConst this_obj,
    it, otherwise def_flags is used)
    Note: makes assumption about the bit pattern of the flags
 */
+/* 取显式指定的 CWE 标志位(JS_PROP_HAS_x)的值, 没有显式指定的则从默认值取  */
 static int get_prop_flags(int flags, int def_flags)
 {
     int mask;
@@ -9371,6 +9454,15 @@ static int get_prop_flags(int flags, int def_flags)
     return (flags & mask) | (def_flags & ~mask);
 }
 
+/* 在对象 p 上创建一个“新的自有属性”，并且根据对象类型处理数组、TypedArray、exotic object 等特殊语义  */
+/*
+    1.检查对象是否可扩展；
+    2.处理数组索引属性和 length 更新；
+    3.维护 fast array，必要时降级为普通数组；
+    4.禁止 TypedArray 创建非法 numeric index；
+    5.委托 exotic object 的自定义属性定义逻辑；
+    6.最终调用 add_property 创建普通数据属性或访问器属性。
+*/
 static int JS_CreateProperty(JSContext *ctx, JSObject *p,
                              JSAtom prop, JSValueConst val,
                              JSValueConst getter, JSValueConst setter,
@@ -9516,8 +9608,8 @@ static BOOL check_define_prop_flags(int prop_flags, int flags)
 }
 
 /* ensure that the shape can be safely modified */
-/* 如果 p->shape 引用计数为不是 1 则 clone 它并返回新的 ShapeProperty 地址  */
-/* 否则将 Shape 从哈希表中删除 */
+/*在修改对象的 shape 之前，检查当前 shape 是否被共享；如果被共享，就 clone 一份独立 shape 给当前对象，
+    并同步修正已有的 JSShapeProperty * 指针，避免修改影响其他共享 shape 的对象 */
 static int js_shape_prepare_update(JSContext *ctx, JSObject *p,
                                    JSShapeProperty **pprs)
 {
@@ -9545,6 +9637,7 @@ static int js_shape_prepare_update(JSContext *ctx, JSObject *p,
     return 0;
 }
 
+/* 设置 JSShapeProperty 的 flags */
 static int js_update_property_flags(JSContext *ctx, JSObject *p,
                                     JSShapeProperty **pprs, int flags)
 {
@@ -9566,6 +9659,8 @@ static int js_update_property_flags(JSContext *ctx, JSObject *p,
    define_own_property callback.
    return -1 (exception), FALSE or TRUE.
 */
+/* 按照 ECMAScript 属性描述符规则，在 QuickJS 对象上定义或重定义一个自有属性，
+    同时处理数组 length、fast array、TypedArray、getter/setter、varref、autoinit、不可配置属性等特殊情况。 */
 int JS_DefineProperty(JSContext *ctx, JSValueConst this_obj,
                       JSAtom prop, JSValueConst val,
                       JSValueConst getter, JSValueConst setter, int flags)
@@ -9583,7 +9678,7 @@ int JS_DefineProperty(JSContext *ctx, JSValueConst this_obj,
 
  redo_prop_update:
     prs = find_own_property(&pr, p, prop);
-    if (prs) {
+    if (prs) {  /* 原来有值 */
         /* the range of the Array length property is always tested before */
         if ((prs->flags & JS_PROP_LENGTH) && (flags & JS_PROP_HAS_VALUE)) {
             uint32_t array_length;
@@ -9612,7 +9707,7 @@ int JS_DefineProperty(JSContext *ctx, JSValueConst this_obj,
 
         if (flags & (JS_PROP_HAS_VALUE | JS_PROP_HAS_WRITABLE |
                      JS_PROP_HAS_GET | JS_PROP_HAS_SET)) {
-            if (flags & (JS_PROP_HAS_GET | JS_PROP_HAS_SET)) {
+            if (flags & (JS_PROP_HAS_GET | JS_PROP_HAS_SET)) {  /* 赋值 Get Set */
                 JSObject *new_getter, *new_setter;
 
                 if (JS_IsFunction(ctx, getter)) {
@@ -9667,7 +9762,7 @@ int JS_DefineProperty(JSContext *ctx, JSValueConst this_obj,
                     pr->u.getset.setter = new_setter;
                 }
             } else {
-                if ((prs->flags & JS_PROP_TMASK) == JS_PROP_GETSET) {
+                if ((prs->flags & JS_PROP_TMASK) == JS_PROP_GETSET) {   /* 清除当前的 Get Set */
                     /* convert to data descriptor */
                     if (js_shape_prepare_update(ctx, p, &prs))
                         return -1;
@@ -9675,11 +9770,13 @@ int JS_DefineProperty(JSContext *ctx, JSValueConst this_obj,
                         JS_FreeValue(ctx, JS_MKPTR(JS_TAG_OBJECT, pr->u.getset.getter));
                     if (pr->u.getset.setter)
                         JS_FreeValue(ctx, JS_MKPTR(JS_TAG_OBJECT, pr->u.getset.setter));
+                    /* ECMA 规范: 从 Accessor Descriptor 转换到 Data Descriptor 时未指定的 writable 默认是 false  */
                     prs->flags &= ~(JS_PROP_TMASK | JS_PROP_WRITABLE);
                     pr->u.value = JS_UNDEFINED;
                 } else if ((prs->flags & JS_PROP_TMASK) == JS_PROP_VARREF) {
                     /* Note: JS_PROP_VARREF is always writable */
                 } else {
+                    /* 当前不可配置不可写且需要赋值 */
                     if ((prs->flags & (JS_PROP_CONFIGURABLE | JS_PROP_WRITABLE)) == 0 &&
                         (flags & JS_PROP_HAS_VALUE)) {
                         if (!js_same_value(ctx, val, pr->u.value)) {
@@ -9689,7 +9786,7 @@ int JS_DefineProperty(JSContext *ctx, JSValueConst this_obj,
                         }
                     }
                 }
-                if ((prs->flags & JS_PROP_TMASK) == JS_PROP_VARREF) {
+                if ((prs->flags & JS_PROP_TMASK) == JS_PROP_VARREF) { /* 赋值 Varref */
                     if (flags & JS_PROP_HAS_VALUE) {
                         if (p->class_id == JS_CLASS_MODULE_NS) {
                             /* JS_PROP_WRITABLE is always true for variable
@@ -9706,6 +9803,7 @@ int JS_DefineProperty(JSContext *ctx, JSValueConst this_obj,
                     /* if writable is set to false, no longer a
                        reference (for mapped arguments) */
                     if ((flags & (JS_PROP_HAS_WRITABLE | JS_PROP_WRITABLE)) == JS_PROP_HAS_WRITABLE) {
+                        /* 显式设置 writable:false 时，断开 var_ref 绑定，保存当前值并转换为不可写普通属性 */
                         JSValue val1;
                         if (p->class_id == JS_CLASS_MODULE_NS) {
                             return JS_ThrowTypeErrorOrFalse(ctx, flags, "module namespace properties have writable = false");
@@ -9717,7 +9815,7 @@ int JS_DefineProperty(JSContext *ctx, JSValueConst this_obj,
                         pr->u.value = val1;
                         prs->flags &= ~(JS_PROP_TMASK | JS_PROP_WRITABLE);
                     }
-                } else if (prs->flags & JS_PROP_LENGTH) {
+                } else if (prs->flags & JS_PROP_LENGTH) {  /* 设置 length 属性 */
                     if (flags & JS_PROP_HAS_VALUE) {
                         /* Note: no JS code is executable because
                            'val' is guaranted to be a Uint32 */
@@ -9730,6 +9828,7 @@ int JS_DefineProperty(JSContext *ctx, JSValueConst this_obj,
                        needed.  The JS_PROP_LENGTH is kept because the
                        Uint32 test is still done if the length
                        property is read-only. */
+                    /* 调用者显式设置了 Writable 为 false */
                     if ((flags & (JS_PROP_HAS_WRITABLE | JS_PROP_WRITABLE)) ==
                         JS_PROP_HAS_WRITABLE) {
                         prs = get_shape_prop(p->shape);
@@ -9738,7 +9837,7 @@ int JS_DefineProperty(JSContext *ctx, JSValueConst this_obj,
                             return -1;
                     }
                     return res;
-                } else {
+                } else {  /* 调用者显式设置了值 */
                     if (flags & JS_PROP_HAS_VALUE) {
                         JS_FreeValue(ctx, pr->u.value);
                         pr->u.value = JS_DupValue(ctx, val);
@@ -9822,6 +9921,7 @@ int JS_DefineProperty(JSContext *ctx, JSValueConst this_obj,
             typed_array_oob:
                 return JS_ThrowTypeErrorOrFalse(ctx, flags, "out-of-bound index in typed array");
             }
+            /* typed array 元素必须是可配置可写可枚举的, 元素值必须是严格类型 */
             prop_flags = get_prop_flags(flags, JS_PROP_ENUMERABLE | JS_PROP_WRITABLE | JS_PROP_CONFIGURABLE);
             if (flags & (JS_PROP_HAS_GET | JS_PROP_HAS_SET) ||
                 prop_flags != (JS_PROP_ENUMERABLE | JS_PROP_WRITABLE | JS_PROP_CONFIGURABLE)) {
@@ -9838,6 +9938,8 @@ int JS_DefineProperty(JSContext *ctx, JSValueConst this_obj,
     return JS_CreateProperty(ctx, p, prop, val, getter, setter, flags);
 }
 
+/* 在对象 this_obj 上定义一个带 JS_PROP_AUTOINIT 标记的“延迟初始化属性”，
+    先只保存初始化所需的 realm、初始化类型 id 和 opaque 数据，等属性第一次被访问时再真正创建/初始化该属性值 */
 static int JS_DefineAutoInitProperty(JSContext *ctx, JSValueConst this_obj,
                                      JSAtom prop, JSAutoInitIDEnum id,
                                      void *opaque, int flags)
@@ -9861,6 +9963,7 @@ static int JS_DefineAutoInitProperty(JSContext *ctx, JSValueConst this_obj,
     if (unlikely(!pr))
         return -1;
     pr->u.init.realm_and_id = (uintptr_t)JS_DupContext(ctx);
+    /* 低两位是 id */
     assert((pr->u.init.realm_and_id & 3) == 0);
     assert(id <= 3);
     pr->u.init.realm_and_id |= id;
@@ -9869,7 +9972,7 @@ static int JS_DefineAutoInitProperty(JSContext *ctx, JSValueConst this_obj,
 }
 
 /* shortcut to add or redefine a new property value */
-// 定义 Object 的属性
+/* 调用 JS_DefineProperty 定义属性值, val 会被 free */
 int JS_DefinePropertyValue(JSContext *ctx, JSValueConst this_obj,
                            JSAtom prop, JSValue val, int flags)
 {
@@ -9922,6 +10025,8 @@ int JS_DefinePropertyValueStr(JSContext *ctx, JSValueConst this_obj,
 }
 
 /* shortcut to add getter & setter */
+/* 在对象 this_obj 上定义一个访问器属性 prop，把传入的 getter/setter 安装为该属性的 get/set 函数，
+    getter setter 会被 free */
 int JS_DefinePropertyGetSet(JSContext *ctx, JSValueConst this_obj,
                             JSAtom prop, JSValue getter, JSValue setter,
                             int flags)
@@ -10927,6 +11032,7 @@ static JSBigInt *js_bigint_new(JSContext *ctx, int len)
     return r;
 }
 
+/* 设置短 BigInt 的值 */
 static JSBigInt *js_bigint_set_si(JSBigIntBuf *buf, js_slimb_t a)
 {
     JSBigInt *r = (JSBigInt *)buf->big_int_buf;
@@ -10956,6 +11062,7 @@ static JSBigInt *js_bigint_set_si64(JSBigIntBuf *buf, int64_t a)
 }
 
 /* val must be a short big int */
+/* 设置短 BigInt 的值 */
 static JSBigInt *js_bigint_set_short(JSBigIntBuf *buf, JSValueConst val)
 {
     return js_bigint_set_si(buf, JS_VALUE_GET_SHORT_BIG_INT(val));
@@ -11083,6 +11190,7 @@ static JSBigInt *js_bigint_normalize(JSContext *ctx, JSBigInt *a)
 }
 
 /* return 0 or 1 depending on the sign */
+/* 获取 BigInt 的符号位 */
 static inline int js_bigint_sign(const JSBigInt *a)
 {
     return a->tab[a->len - 1] >> (JS_LIMB_BITS - 1);
@@ -11716,6 +11824,7 @@ static int js_bigint_float64_cmp(JSContext *ctx, const JSBigInt *a,
 }
 
 /* return -1, 0 or 1 */
+/* 比较两个 BigInt 的大小 */
 static int js_bigint_cmp(JSContext *ctx, const JSBigInt *a,
                          const JSBigInt *b)
 {
@@ -12712,6 +12821,7 @@ static inline int JS_ToUint32Free(JSContext *ctx, uint32_t *pres, JSValue val)
     return JS_ToInt32Free(ctx, (int32_t *)pres, val);
 }
 
+/* 将任意值转换为 0~255 之间的数字 */
 static int JS_ToUint8ClampFree(JSContext *ctx, int32_t *pres, JSValue val)
 {
     uint32_t tag;
@@ -12754,6 +12864,7 @@ static int JS_ToUint8ClampFree(JSContext *ctx, int32_t *pres, JSValue val)
     return 0;
 }
 
+/* 将任意值转换为数组长度 length */
 static __exception int JS_ToArrayLengthFree(JSContext *ctx, uint32_t *plen,
                                             JSValue val, BOOL is_array_ctor)
 {
@@ -12859,6 +12970,7 @@ static int JS_NumberIsInteger(JSContext *ctx, JSValueConst val)
     return isfinite(d) && floor(d) == d;
 }
 
+/* 判断数字是否是负数或负0 */
 static BOOL JS_NumberIsNegativeOrMinusZero(JSContext *ctx, JSValueConst val)
 {
     uint32_t tag;
@@ -12978,12 +13090,13 @@ static JSValue JS_ToStringInternal(JSContext *ctx, JSValueConst val, BOOL is_ToP
     }
 }
 
-// 将任意值转为字符串(is_ToPropertyKey=FALSE)
+/* 将任意值转为字符串(is_ToPropertyKey=FALSE) */
 JSValue JS_ToString(JSContext *ctx, JSValueConst val)
 {
     return JS_ToStringInternal(ctx, val, FALSE);
 }
 
+/* 调用 JS_ToString 将任意值转为字符串, val 会被 free */
 static JSValue JS_ToStringFree(JSContext *ctx, JSValue val)
 {
     JSValue ret;
@@ -14366,6 +14479,7 @@ static no_inline __exception int js_binary_arith_slow(JSContext *ctx, JSValue *s
     return -1;
 }
 
+/* 判断 Tag 是否是 String 类型 */
 static inline BOOL tag_is_string(uint32_t tag)
 {
     return tag == JS_TAG_STRING || tag == JS_TAG_STRING_ROPE;
@@ -15041,6 +15155,7 @@ static no_inline int js_shr_slow(JSContext *ctx, JSValue *sp)
 }
 
 /* XXX: Should take JSValueConst arguments */
+/* 判断两个 Value 是否严格相等(===,Free) */
 static BOOL js_strict_eq2(JSContext *ctx, JSValue op1, JSValue op2,
                           JSStrictEqModeEnum eq_mode)
 {
@@ -15178,6 +15293,7 @@ BOOL JS_StrictEq(JSContext *ctx, JSValueConst op1, JSValueConst op2)
     return js_strict_eq(ctx, op1, op2);
 }
 
+/* 判断两个 Value 是否相等 */
 static BOOL js_same_value(JSContext *ctx, JSValueConst op1, JSValueConst op2)
 {
     return js_strict_eq2(ctx,
@@ -37616,6 +37732,8 @@ static int check_exception_free(JSContext *ctx, JSValue obj)
     return JS_IsException(obj);
 }
 
+/* 把属性名字符串转换成 JSAtom，其中普通名字直接新建/查找 atom，
+    而形如 "[xxx]" 的名字会在内置 Symbol atom 区间里查找对应的 Symbol 并返回其引用。 */
 static JSAtom find_atom(JSContext *ctx, const char *name)
 {
     JSAtom atom;
@@ -37663,6 +37781,7 @@ static JSValue JS_InstantiateFunctionListItem2(JSContext *ctx, JSObject *p,
     return val;
 }
 
+/* 把 JSCFunctionListEntry 描述的一项内建属性/函数/访问器实例化到目标对象 obj */
 static int JS_InstantiateFunctionListItem(JSContext *ctx, JSValueConst obj,
                                           JSAtom atom,
                                           const JSCFunctionListEntry *e)
@@ -37682,6 +37801,7 @@ static int JS_InstantiateFunctionListItem(JSContext *ctx, JSValueConst obj,
                 val = JS_GetProperty(ctx, ctx->global_obj, atom1);
                 break;
             case 1:
+                /* 例如：TypedArray 原型复用 Array 原型上的迭代方法 */
                 val = JS_GetProperty(ctx, ctx->class_proto[JS_CLASS_ARRAY], atom1);
                 break;
             default:
@@ -37756,6 +37876,8 @@ static int JS_InstantiateFunctionListItem(JSContext *ctx, JSValueConst obj,
     return 0;
 }
 
+/* 遍历 JSCFunctionListEntry 表，把每一项描述的函数、属性、getter/setter、常量或子属性列表实例化后，
+    按名称批量定义到目标 JS 对象 obj 上 */
 void JS_SetPropertyFunctionList(JSContext *ctx, JSValueConst obj,
                                 const JSCFunctionListEntry *tab, int len)
 {
@@ -39614,6 +39736,7 @@ static JSValue js_error_constructor(JSContext *ctx, JSValueConst new_target,
     return JS_EXCEPTION;
 }
 
+/* Error.prototype.toString */
 static JSValue js_error_toString(JSContext *ctx, JSValueConst this_val,
                                  int argc, JSValueConst *argv)
 {
@@ -51820,6 +51943,8 @@ static const char * const native_error_name[JS_NATIVE_ERROR_COUNT] = {
 
 /* Minimum amount of objects to be able to compile code and display
    error messages. No JSAtom should be allocated by this function. */
+/* 初始化最基础的内建原型对象体系，包括 Object.prototype、Function.prototype、Error.prototype、
+    各类 NativeError prototype、Array.prototype 以及数组对象的初始 shape，为后续创建 JS 对象、函数、错误和数组打基础 */
 static void JS_AddIntrinsicBasicObjects(JSContext *ctx)
 {
     JSValue proto;

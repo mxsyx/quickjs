@@ -248,7 +248,7 @@ typedef struct JSValue {
 
 #define JS_NAN (JSValue){ .u.float64 = JS_FLOAT64_NAN, JS_TAG_FLOAT64 }
 
-// 从 double 创建 Value
+/* 创建 double 类型的 JSValue */
 static inline JSValue __JS_NewFloat64(JSContext *ctx, double d)
 {
     JSValue v;
@@ -320,6 +320,7 @@ static inline JSValue __JS_NewShortBigInt(JSContext *ctx, int64_t d)
    (JS_SetProperty) */
 #define JS_PROP_THROW_STRICT     (1 << 15)
 
+/* 只允许修改已有属性，不允许在对象上新增属性 */
 #define JS_PROP_NO_ADD           (1 << 16) /* internal use */
 #define JS_PROP_NO_EXOTIC        (1 << 17) /* internal use */
 
@@ -546,13 +547,13 @@ int JS_NewClass(JSRuntime *rt, JSClassID class_id, const JSClassDef *class_def);
 int JS_IsRegisteredClass(JSRuntime *rt, JSClassID class_id);
 
 /* value handling */
-// 创建 boolean 类型的 Value
+/*  创建 boolean 类型的 JSValue */
 static js_force_inline JSValue JS_NewBool(JSContext *ctx, JS_BOOL val)
 {
     return JS_MKVAL(JS_TAG_BOOL, (val != 0));
 }
 
-/* 创建 int32 类型的 Value */
+/* 创建 int32 类型的 JSValue */
 static js_force_inline JSValue JS_NewInt32(JSContext *ctx, int32_t val)
 {
     return JS_MKVAL(JS_TAG_INT, val);
@@ -563,7 +564,7 @@ static js_force_inline JSValue JS_NewCatchOffset(JSContext *ctx, int32_t val)
     return JS_MKVAL(JS_TAG_CATCH_OFFSET, val);
 }
 
-// 从 int64 创建 int32/float64 类型的 Value
+/* 从 int64 创建 int32/float64 类型的 JSValue */
 static js_force_inline JSValue JS_NewInt64(JSContext *ctx, int64_t val)
 {
     JSValue v;
@@ -575,7 +576,7 @@ static js_force_inline JSValue JS_NewInt64(JSContext *ctx, int64_t val)
     return v;
 }
 
-// 从 uint32 创建 int32/float64 类型的 Value
+/* 从 uint32 创建 int32/float64 类型的 JSValue */
 static js_force_inline JSValue JS_NewUint32(JSContext *ctx, uint32_t val)
 {
     JSValue v;
@@ -609,64 +610,64 @@ static js_force_inline JSValue JS_NewFloat64(JSContext *ctx, double d)
     return __JS_NewFloat64(ctx, d);
 }
 
-// 判断 Value 是否是 number
+/* 判断 JSValue 是否是 number */
 static inline JS_BOOL JS_IsNumber(JSValueConst v)
 {
     int tag = JS_VALUE_GET_TAG(v);
     return tag == JS_TAG_INT || JS_TAG_IS_FLOAT64(tag);
 }
 
-// 判断 Value 是否是 bigint
+/* 判断 JSValue 是否是 bigint */
 static inline JS_BOOL JS_IsBigInt(JSContext *ctx, JSValueConst v)
 {
     int tag = JS_VALUE_GET_TAG(v);
     return tag == JS_TAG_BIG_INT || tag == JS_TAG_SHORT_BIG_INT;
 }
 
-// 判断 Value 是否是 boolean
+/* 判断 Value 是否是 boolean */
 static inline JS_BOOL JS_IsBool(JSValueConst v)
 {
     return JS_VALUE_GET_TAG(v) == JS_TAG_BOOL;
 }
 
-// 判断 Value 是否是 null
+/* 判断 JSValue 是否是 null */
 static inline JS_BOOL JS_IsNull(JSValueConst v)
 {
     return JS_VALUE_GET_TAG(v) == JS_TAG_NULL;
 }
 
-// 判断 Value 是否是 undefined
+/* 判断 JSValue 是否是 undefined  */
 static inline JS_BOOL JS_IsUndefined(JSValueConst v)
 {
     return JS_VALUE_GET_TAG(v) == JS_TAG_UNDEFINED;
 }
 
-// 判断 Value 是否是 Exception
+/* 判断 JSValue 是否是 Exception */
 static inline JS_BOOL JS_IsException(JSValueConst v)
 {
     return js_unlikely(JS_VALUE_GET_TAG(v) == JS_TAG_EXCEPTION);
 }
 
-// 判断 Value 是否是 Uninitialized
+/* 判断 JSValue 是否是 Uninitialized */
 static inline JS_BOOL JS_IsUninitialized(JSValueConst v)
 {
     return js_unlikely(JS_VALUE_GET_TAG(v) == JS_TAG_UNINITIALIZED);
 }
 
-// 判断 Value 是否是 string
+/* 判断 JSValue 是否是 string */
 static inline JS_BOOL JS_IsString(JSValueConst v)
 {
     return JS_VALUE_GET_TAG(v) == JS_TAG_STRING ||
         JS_VALUE_GET_TAG(v) == JS_TAG_STRING_ROPE;
 }
 
-// 判断 Value 是否是 symbol
+/* 判断 JSValue 是否是 symbol  */
 static inline JS_BOOL JS_IsSymbol(JSValueConst v)
 {
     return JS_VALUE_GET_TAG(v) == JS_TAG_SYMBOL;
 }
 
-// 判断 Value 是否是 object
+/* 判断 JSValue 是否是 object */
 static inline JS_BOOL JS_IsObject(JSValueConst v)
 {
     return JS_VALUE_GET_TAG(v) == JS_TAG_OBJECT;
@@ -687,7 +688,7 @@ JSValue JS_ThrowOutOfMemory(JSContext *ctx);
 
 void __JS_FreeValue(JSContext *ctx, JSValue v);
 
-/* 将 Value 的引用计数减 1 */
+/* 释放 Value(当引用计数为0时) */
 static inline void JS_FreeValue(JSContext *ctx, JSValue v)
 {
     if (JS_VALUE_HAS_REF_COUNT(v)) {
@@ -698,6 +699,8 @@ static inline void JS_FreeValue(JSContext *ctx, JSValue v)
     }
 }
 void __JS_FreeValueRT(JSRuntime *rt, JSValue v);
+
+/* 释放 Value(当引用计数为0时) */
 static inline void JS_FreeValueRT(JSRuntime *rt, JSValue v)
 {
     if (JS_VALUE_HAS_REF_COUNT(v)) {
@@ -708,7 +711,7 @@ static inline void JS_FreeValueRT(JSRuntime *rt, JSValue v)
     }
 }
 
-// 将对象的引用计数加1
+/* 将对象的引用计数加1 */
 static inline JSValue JS_DupValue(JSContext *ctx, JSValueConst v)
 {
     if (JS_VALUE_HAS_REF_COUNT(v)) {
@@ -788,7 +791,7 @@ JSValue JS_GetPropertyInternal(JSContext *ctx, JSValueConst obj,
                                JSAtom prop, JSValueConst receiver,
                                JS_BOOL throw_ref_error);
 
-/* 获取 Object 的属性, this 为 Object 本身, 不抛出引用错误  */
+/* 获取 JSObject 的属性, this 为 JSObject 本身, 不抛出引用错误  */
 static js_force_inline JSValue JS_GetProperty(JSContext *ctx, JSValueConst this_obj,
                                               JSAtom prop)
 {
@@ -1045,6 +1048,7 @@ JSValue JS_NewCFunctionData(JSContext *ctx, JSCFunctionData *func,
                             int length, int magic, int data_len,
                             JSValueConst *data);
 
+/* 调用 JS_NewCFunction2 创建 JS_CFUNC_generic 类型, mafic == 0 的 CFunction */
 static inline JSValue JS_NewCFunction(JSContext *ctx, JSCFunction *func, const char *name,
                                       int length)
 {
@@ -1061,7 +1065,6 @@ void JS_SetConstructor(JSContext *ctx, JSValueConst func_obj,
                        JSValueConst proto);
 
 /* C property definition */
-
 typedef struct JSCFunctionListEntry {
     const char *name;
     uint8_t prop_flags;
@@ -1077,6 +1080,8 @@ typedef struct JSCFunctionListEntry {
             JSCFunctionType get;
             JSCFunctionType set;
         } getset;
+        /* 在内建对象初始化时，为已有属性创建另一个标准规定的名字或符号别名，避免重复创建函数对象，并保证两个属性引用同一个值。 */
+        /* Array.prototype[Symbol.iterator] === Array.prototype.values */
         struct {
             const char *name;
             int base;
