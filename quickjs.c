@@ -5274,6 +5274,8 @@ static JSValue JS_GetObjectData(JSContext *ctx, JSValueConst obj)
 }
 #endif
 
+/* 给 Number/String/Boolean/Symbol/Date/BigInt 这类包装对象设置内部保存的原始数据 object_data，
+    如果对象类型不合法则释放传入值并抛 TypeError, val 会被 free */
 static int JS_SetObjectData(JSContext *ctx, JSValueConst obj, JSValue val)
 {
     JSObject *p;
@@ -7988,6 +7990,7 @@ static int num_keys_cmp(const void *p1, const void *p2, void *opaque)
         return 1;
 }
 
+/* 释放属性枚举结果数组 tab 中每个属性名 atom 的引用，并释放整个枚举数组内存 */
 static void js_free_prop_enum(JSContext *ctx, JSPropertyEnum *tab, uint32_t len)
 {
     uint32_t i;
@@ -8950,6 +8953,7 @@ static JSValue js_allocate_fast_array(JSContext *ctx, int64_t len)
     return arr;
 }
 
+/* 释放一个属性描述符 JSPropertyDescriptor 中持有的 getter、setter 和 value 三个 JSValue 引用 */
 static void js_free_desc(JSContext *ctx, JSPropertyDescriptor *desc)
 {
     JS_FreeValue(ctx, desc->getter);
@@ -10013,6 +10017,7 @@ int JS_DefinePropertyValueInt64(JSContext *ctx, JSValueConst this_obj,
                                        val, flags);
 }
 
+/* 用字符串属性名给对象定义属性值 */
 int JS_DefinePropertyValueStr(JSContext *ctx, JSValueConst this_obj,
                               const char *prop, JSValue val, int flags)
 {
@@ -19551,6 +19556,8 @@ static JSValue JS_CallFree(JSContext *ctx, JSValue func_obj, JSValueConst this_o
 
 /* warning: the refcount of the context is not incremented. Return
    NULL in case of exception (case of revoked proxy only) */
+/* 根据一个函数对象的真实函数来源，取出它所属的 Realm / JSContext，用于后续创建对象时选择正确的内建原型；
+    如果不是函数或无法识别，则默认返回当前 ctx */
 static JSContext *JS_GetFunctionRealm(JSContext *ctx, JSValueConst func_obj)
 {
     JSObject *p;
@@ -19599,6 +19606,8 @@ static JSContext *JS_GetFunctionRealm(JSContext *ctx, JSValueConst func_obj)
     return realm;
 }
 
+/* 按照构造函数 ctor 的 prototype 创建指定 class_id 类型的新对象；
+    如果 ctor.prototype 不是对象，则退回到该构造函数所属 Realm 的默认原型 */
 static JSValue js_create_from_ctor(JSContext *ctx, JSValueConst ctor,
                                    int class_id)
 {
@@ -37941,6 +37950,8 @@ int JS_SetModuleExportList(JSContext *ctx, JSModuleDef *m,
 }
 
 /* Note: 'func_obj' is not necessarily a constructor */
+/* 把构造函数对象 func_obj 和原型对象 proto 双向关联起来，即设置 func_obj.prototype = proto，
+    同时设置 proto.constructor = func_obj，并标记二者可能形成循环引用 */
 static void JS_SetConstructor2(JSContext *ctx,
                                JSValueConst func_obj,
                                JSValueConst proto,
@@ -37955,6 +37966,7 @@ static void JS_SetConstructor2(JSContext *ctx,
     set_cycle_flag(ctx, proto);
 }
 
+/* 设置 ctor_flags 为 JS_PROP_WRITABLE, JS_PROP_CONFIGURABLE 并调用 JS_SetConstructor2 */
 void JS_SetConstructor(JSContext *ctx, JSValueConst func_obj,
                        JSValueConst proto)
 {
@@ -37962,6 +37974,8 @@ void JS_SetConstructor(JSContext *ctx, JSValueConst func_obj,
                        0, JS_PROP_WRITABLE | JS_PROP_CONFIGURABLE);
 }
 
+/* 把一个 C 实现的构造函数挂到全局对象上，并建立该构造函数与其 prototype 对象之间的 constructor/prototype 关联，
+    最后释放传入的函数引用 */
 static void JS_NewGlobalCConstructor2(JSContext *ctx,
                                       JSValue func_obj,
                                       const char *name,
@@ -37974,6 +37988,7 @@ static void JS_NewGlobalCConstructor2(JSContext *ctx,
     JS_FreeValue(ctx, func_obj);
 }
 
+/* 创建 func 的 JS 包装类型，并调用 JS_NewGlobalCConstructor2 完成构造函数的创建   */
 static JSValueConst JS_NewGlobalCConstructor(JSContext *ctx, const char *name,
                                              JSCFunction *func, int length,
                                              JSValueConst proto)
@@ -38020,7 +38035,9 @@ static JSValue js_global_isFinite(JSContext *ctx, JSValueConst this_val,
 }
 
 /* Object class */
-
+/* 把 JS 原始值包装成对应的对象包装器，例如 number → Number 对象、string → String 对象、boolean → Boolean 对象；
+    如果已经是对象则直接复制引用，null/undefined 则按 ECMAScript 的 ToObject 语义抛 TypeError
+    如 Object(1) Object("abc") Object(undefined) */
 static JSValue JS_ToObject(JSContext *ctx, JSValueConst val)
 {
     int tag = JS_VALUE_GET_NORM_TAG(val);
@@ -38212,11 +38229,15 @@ exception:
     return ret;
 }
 
+/* 实现 ECMAScript 中 Object() / new Object() 的构造逻辑：普通调用时把参数转成对象，参数是 null/undefined 时
+    创建普通空对象；作为子类构造器调用时则按 new_target.prototype 创建对应对象 */
 static JSValue js_object_constructor(JSContext *ctx, JSValueConst new_target,
                                      int argc, JSValueConst *argv)
 {
     JSValue ret;
     if (!JS_IsUndefined(new_target) &&
+        /* 让 new Object(value) 继续走 Object 的特殊装箱/空对象逻辑，而让 class A extends Object 这类派生构造走
+            new.target.prototype 创建实例的逻辑 */
         JS_VALUE_GET_OBJ(new_target) !=
         JS_VALUE_GET_OBJ(JS_GetActiveFunction(ctx))) {
         ret = js_create_from_ctor(ctx, new_target, JS_CLASS_OBJECT);
@@ -38780,6 +38801,8 @@ exception:
     return JS_EXCEPTION;
 }
 
+/* 实现 Object.seal() / Object.freeze() 的核心逻辑，用来把对象变成不可扩展，并将其自有属性锁定为不可配置；
+    在 freeze_flag 为真时进一步冻结可写属性 */
 static JSValue js_object_seal(JSContext *ctx, JSValueConst this_val,
                               int argc, JSValueConst *argv, int freeze_flag)
 {
@@ -38819,6 +38842,7 @@ static JSValue js_object_seal(JSContext *ctx, JSValueConst this_val,
                 js_free_desc(ctx, &desc);
             }
         }
+        /* 仅修改属性的配置 */
         if (JS_DefineProperty(ctx, obj, prop, JS_UNDEFINED,
                               JS_UNDEFINED, JS_UNDEFINED, desc_flags) < 0)
             goto exception;
