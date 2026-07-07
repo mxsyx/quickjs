@@ -7308,6 +7308,9 @@ static void JS_SetImmutablePrototype(JSContext *ctx, JSValueConst obj)
 
 /* Return -1 (exception) or TRUE/FALSE. 'throw_flag' = FALSE indicates
    that it is called from Reflect.setPrototypeOf(). */
+/* 实现对象内部 [[SetPrototypeOf]] 操作：在校验目标对象、新原型合法性、不可变原型、对象可扩展性以及原型链循环后，
+    将对象的 [[Prototype]] 修改为指定对象或 null；对于 Proxy 等异质对象则转交其自定义 set_prototype 方法处理，
+    根据 throw_flag 决定失败时抛异常还是返回 false */
 static int JS_SetPrototypeInternal(JSContext *ctx, JSValueConst obj,
                                    JSValueConst proto_val,
                                    BOOL throw_flag)
@@ -7405,7 +7408,8 @@ int JS_SetPrototype(JSContext *ctx, JSValueConst obj, JSValueConst proto_val)
 }
 
 /* Only works for primitive types, otherwise return JS_NULL. */
-// 获取 Value 原始类型对应的包装类型
+/* 根据原始值的类型返回其对应的内置包装对象原型（如 Number.prototype、String.prototype），
+    对于对象、null 和 undefined 则返回 null */
 static JSValueConst JS_GetPrototypePrimitive(JSContext *ctx, JSValueConst val)
 {
     switch(JS_VALUE_GET_NORM_TAG(val)) {
@@ -7438,6 +7442,7 @@ static JSValueConst JS_GetPrototypePrimitive(JSContext *ctx, JSValueConst val)
 }
 
 /* Return an Object, JS_NULL or JS_EXCEPTION in case of exotic object. */
+/* 获取指定值的原型：对象优先调用 exotic get_prototype 钩子，否则读取其 [[Prototype]]；原始值则返回对应包装类型的原型对象 */
 JSValue JS_GetPrototype(JSContext *ctx, JSValueConst obj)
 {
     JSValue val;
@@ -8370,6 +8375,9 @@ int JS_PreventExtensions(JSContext *ctx, JSValueConst obj)
 }
 
 /* return -1 if exception otherwise TRUE or FALSE */
+/* 从对象自身开始沿原型链逐层查找属性；遇到 Proxy 等异型对象时调用其自定义 has_property 内部方法；
+    对于 TypedArray，若属性名是数值索引但该索引在当前 TypedArray 中不存在，则直接返回 false，不会继续查询原型链；
+    最终返回 1 表示存在、0 表示不存在、-1 表示检查过程中抛出异常。 */
 int JS_HasProperty(JSContext *ctx, JSValueConst obj, JSAtom prop)
 {
     JSObject *p;
@@ -9987,6 +9995,7 @@ int JS_DefinePropertyValue(JSContext *ctx, JSValueConst this_obj,
     return ret;
 }
 
+/* 把动态的 JavaScript 属性键 prop 转换成 JSAtom，然后在 this_obj 上定义值为 val 的属性，并接管、释放 prop 和 val 的所有权 */
 int JS_DefinePropertyValueValue(JSContext *ctx, JSValueConst this_obj,
                                 JSValue prop, JSValue val, int flags)
 {
@@ -10003,6 +10012,7 @@ int JS_DefinePropertyValueValue(JSContext *ctx, JSValueConst this_obj,
     return ret;
 }
 
+/* 从 uint32 创建 JSValue 作为 prop 调用 JS_DefinePropertyValueValue,  */
 int JS_DefinePropertyValueUint32(JSContext *ctx, JSValueConst this_obj,
                                  uint32_t idx, JSValue val, int flags)
 {
@@ -10045,6 +10055,8 @@ int JS_DefinePropertyGetSet(JSContext *ctx, JSValueConst this_obj,
     return ret;
 }
 
+/* 从 int64_t 创建　JSValue 作为 prop 调用 JS_DefinePropertyValueValue,
+   flags = JS_PROP_CONFIGURABLE | JS_PROP_ENUMERABLE | JS_PROP_WRITABLE */
 static int JS_CreateDataPropertyUint32(JSContext *ctx, JSValueConst this_obj,
                                        int64_t idx, JSValue val, int flags)
 {
@@ -10600,6 +10612,7 @@ static inline BOOL JS_IsHTMLDDA(JSContext *ctx, JSValueConst obj)
     return p->is_HTMLDDA;
 }
 
+/* 按 ECMAScript 的 ToBoolean 规则把 val 转换为布尔值，并在需要时释放该值持有的引用；转换异常时返回 -1 */
 static int JS_ToBoolFree(JSContext *ctx, JSValue val)
 {
     uint32_t tag = JS_VALUE_GET_TAG(val);
@@ -10665,6 +10678,7 @@ static int JS_ToBoolFree(JSContext *ctx, JSValue val)
     }
 }
 
+/* 调用 JS_ToBoolFree, val 会被 dup */
 int JS_ToBool(JSContext *ctx, JSValueConst val)
 {
     return JS_ToBoolFree(ctx, JS_DupValue(ctx, val));
@@ -15919,6 +15933,7 @@ static __exception int js_for_in_next(JSContext *ctx, JSValue *sp)
     return 0;
 }
 
+/* 以 obj 作为 this 调用迭代器方法 method，并检查调用结果必须是对象，最终返回这个迭代器对象 */
 static JSValue JS_GetIterator2(JSContext *ctx, JSValueConst obj,
                                JSValueConst method)
 {
@@ -15934,6 +15949,7 @@ static JSValue JS_GetIterator2(JSContext *ctx, JSValueConst obj,
     return enum_obj;
 }
 
+/* 根据 is_async 获取对象的同步或异步迭代器；当请求异步迭代器但对象只支持同步迭代时，自动把同步迭代器包装成异步迭代器 */
 static JSValue JS_GetIterator(JSContext *ctx, JSValueConst obj, BOOL is_async)
 {
     JSValue method, ret, sync_iter;
@@ -37727,6 +37743,7 @@ static JSValue js_boolean_constructor(JSContext *ctx, JSValueConst this_val,
 static JSValue js_number_constructor(JSContext *ctx, JSValueConst this_val,
                                      int argc, JSValueConst *argv);
 
+/* 调用 JS_IsFunction 判断 obj 是否为一个函数，不是则抛出 TypeError 异常 */
 static int check_function(JSContext *ctx, JSValueConst obj)
 {
     if (likely(JS_IsFunction(ctx, obj)))
@@ -38095,6 +38112,8 @@ static JSValue JS_ToObjectFree(JSContext *ctx, JSValue val)
     return obj;
 }
 
+/* 将 JavaScript 属性描述符对象（如 { value, writable, get, set, enumerable, configurable }）解析并校验后，
+    转换为内部的 JSPropertyDescriptor 结构 */
 static int js_obj_to_desc(JSContext *ctx, JSPropertyDescriptor *d,
                           JSValueConst desc)
 {
@@ -38174,6 +38193,7 @@ static int js_obj_to_desc(JSContext *ctx, JSPropertyDescriptor *d,
     return -1;
 }
 
+/* 将 JavaScript 属性描述符对象 desc 转换为内部描述符 JSPropertyDescriptor，并据此在 obj 上定义属性 prop，desc 会被 free */
 static __exception int JS_DefinePropertyDesc(JSContext *ctx, JSValueConst obj,
                                              JSAtom prop, JSValueConst desc,
                                              int flags)
@@ -38190,6 +38210,8 @@ static __exception int JS_DefinePropertyDesc(JSContext *ctx, JSValueConst obj,
     return ret;
 }
 
+/* 现 Object.defineProperties 的核心逻辑：遍历 properties 的所有可枚举自有属性，
+    将每个属性值解析为属性描述符，并批量定义到目标对象 obj 上 */
 static __exception int JS_ObjectDefineProperties(JSContext *ctx,
                                                  JSValueConst obj,
                                                  JSValueConst properties)
@@ -38256,6 +38278,8 @@ static JSValue js_object_constructor(JSContext *ctx, JSValueConst new_target,
     return ret;
 }
 
+/* 实现 Object.create(proto, properties)：以 proto 作为新对象的 [[Prototype]] 创建对象，
+    并可通过属性描述符集合 properties 批量定义其自有属性 */
 static JSValue js_object_create(JSContext *ctx, JSValueConst this_val,
                                 int argc, JSValueConst *argv)
 {
@@ -38278,6 +38302,8 @@ static JSValue js_object_create(JSContext *ctx, JSValueConst this_val,
     return obj;
 }
 
+/* 实现 Object.getPrototypeOf / Reflect.getPrototypeOf：校验参数类型后返回目标值的原型，
+    其中 Object.getPrototypeOf 接受基本类型并按装箱原型处理，而 Reflect.getPrototypeOf（magic != 0）只接受对象  */
 static JSValue js_object_getPrototypeOf(JSContext *ctx, JSValueConst this_val,
                                         int argc, JSValueConst *argv, int magic)
 {
@@ -38294,6 +38320,8 @@ static JSValue js_object_getPrototypeOf(JSContext *ctx, JSValueConst this_val,
     return JS_GetPrototype(ctx, val);
 }
 
+/* 实现 Object.setPrototypeOf(obj, proto)：调用 JS_SetPrototypeInternal 将 obj 的 [[Prototype]]
+    设置为 argv[1]，失败时抛出异常，成功后返回原对象 obj */
 static JSValue js_object_setPrototypeOf(JSContext *ctx, JSValueConst this_val,
                                         int argc, JSValueConst *argv)
 {
@@ -38305,6 +38333,8 @@ static JSValue js_object_setPrototypeOf(JSContext *ctx, JSValueConst this_val,
 }
 
 /* magic = 1 if called as Reflect.defineProperty */
+/* Object.defineProperty 和 Reflect.defineProperty 共用的底层实现：它把属性键转换成 JSAtom，
+    将描述符对象解析后定义到目标对象上，并根据 magic 决定失败时抛异常还是返回布尔值 */
 static JSValue js_object_defineProperty(JSContext *ctx, JSValueConst this_val,
                                         int argc, JSValueConst *argv, int magic)
 {
@@ -38335,6 +38365,7 @@ static JSValue js_object_defineProperty(JSContext *ctx, JSValueConst this_val,
     }
 }
 
+/* 实现 Object.defineProperties(obj, properties) */
 static JSValue js_object_defineProperties(JSContext *ctx, JSValueConst this_val,
                                           int argc, JSValueConst *argv)
 {
@@ -38509,6 +38540,12 @@ exception:
     return JS_EXCEPTION;
 }
 
+/* 获取对象自身的属性名列表，并根据 kind 将结果转换为属性键、属性值或 [键, 值] 数组，最终返回一个新的 JavaScript 数组
+    它可以作为下面这些 API 的底层公共实现：
+    Object.keys(obj)：kind = JS_ITERATOR_KIND_KEY
+    Object.values(obj)：kind = JS_ITERATOR_KIND_VALUE
+    Object.entries(obj)：kind = JS_ITERATOR_KIND_KEY_AND_VALUE
+    类似 Object.getOwnPropertyNames() 的操作：由 flags 控制是否包含不可枚举属性、Symbol 等 */
 static JSValue JS_GetOwnPropertyNames2(JSContext *ctx, JSValueConst obj1,
                                        int flags, int kind)
 {
@@ -38588,6 +38625,8 @@ done:
     return r;
 }
 
+/* 实现 Object.getOwnPropertyNames, 调用 JS_GetOwnPropertyNames2,
+    flags = JS_GPN_STRING_MASK, kind = JS_ITERATOR_KIND_KEY  */
 static JSValue js_object_getOwnPropertyNames(JSContext *ctx, JSValueConst this_val,
                                              int argc, JSValueConst *argv)
 {
@@ -38595,6 +38634,8 @@ static JSValue js_object_getOwnPropertyNames(JSContext *ctx, JSValueConst this_v
                                    JS_GPN_STRING_MASK, JS_ITERATOR_KIND_KEY);
 }
 
+/* 实现 Object.getOwnPropertySymbols, 调用 JS_GetOwnPropertyNames2,
+    flags = JS_GPN_SYMBOL_MASK, kind = JS_ITERATOR_KIND_KEY  */
 static JSValue js_object_getOwnPropertySymbols(JSContext *ctx, JSValueConst this_val,
                                              int argc, JSValueConst *argv)
 {
@@ -38602,6 +38643,8 @@ static JSValue js_object_getOwnPropertySymbols(JSContext *ctx, JSValueConst this
                                    JS_GPN_SYMBOL_MASK, JS_ITERATOR_KIND_KEY);
 }
 
+/* 实现 Object.keys, Object.values, Object.entries, 调用 JS_GetOwnPropertyNames2,
+    flags = JS_GPN_ENUM_ONLY | JS_GPN_STRING_MASK  */
 static JSValue js_object_keys(JSContext *ctx, JSValueConst this_val,
                               int argc, JSValueConst *argv, int kind)
 {

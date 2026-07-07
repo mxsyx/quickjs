@@ -688,7 +688,7 @@ JSValue JS_ThrowOutOfMemory(JSContext *ctx);
 
 void __JS_FreeValue(JSContext *ctx, JSValue v);
 
-/* 释放 Value(当引用计数为0时) */
+/* 将 JSValue 指向对象的引用计数减 1, 当引用计数为 0 时，释放该对像 */
 static inline void JS_FreeValue(JSContext *ctx, JSValue v)
 {
     if (JS_VALUE_HAS_REF_COUNT(v)) {
