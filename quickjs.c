@@ -15985,6 +15985,8 @@ static JSValue JS_GetIterator(JSContext *ctx, JSValueConst obj, BOOL is_async)
 }
 
 /* return *pdone = 2 if the iterator object is not parsed */
+/* 调用迭代器的 next 方法，确保返回值是对象，并针对内置迭代器走快速路径，直接返回迭代值和完成状态，
+    避免创建中间的 { value, done } 对象 */
 static JSValue JS_IteratorNext2(JSContext *ctx, JSValueConst enum_obj,
                                 JSValueConst method,
                                 int argc, JSValueConst *argv, int *pdone)
@@ -16026,6 +16028,10 @@ static JSValue JS_IteratorNext2(JSContext *ctx, JSValueConst enum_obj,
 }
 
 /* Note: always return JS_UNDEFINED when *pdone = TRUE. */
+/* 调用迭代器的 next() 方法，并把返回的 IteratorResult 对象解析成“迭代值 + 是否结束”这两个更方便内部使用的结果
+    done == 0  // 内置快速路径：未结束，obj 已经直接是 value
+    done == 1  // 内置快速路径：已结束
+    done == 2  // 普通路径：obj 是标准 IteratorResult 对象 */
 static JSValue JS_IteratorNext(JSContext *ctx, JSValueConst enum_obj,
                                JSValueConst method,
                                int argc, JSValueConst *argv, BOOL *pdone)
@@ -38652,6 +38658,7 @@ static JSValue js_object_keys(JSContext *ctx, JSValueConst this_val,
                                    JS_GPN_ENUM_ONLY | JS_GPN_STRING_MASK, kind);
 }
 
+/* 实现 Object.isExtensible / Reflect.isExtensible, 判断一个对象当前是否允许添加新属性，并返回布尔值 */
 static JSValue js_object_isExtensible(JSContext *ctx, JSValueConst this_val,
                                       int argc, JSValueConst *argv, int reflect)
 {
@@ -38672,6 +38679,10 @@ static JSValue js_object_isExtensible(JSContext *ctx, JSValueConst this_val,
         return JS_NewBool(ctx, ret);
 }
 
+/* 实现 Object.preventExtensions / Reflect.preventExtensions, 调用对象的 [[PreventExtensions]] 内部方法，
+    使对象变为不可扩展，并根据 reflect 返回不同结果。
+    reflect != 0，返回布尔值。
+    reflect == 0，返回调用对象本身。*/
 static JSValue js_object_preventExtensions(JSContext *ctx, JSValueConst this_val,
                                            int argc, JSValueConst *argv, int reflect)
 {
@@ -39341,7 +39352,7 @@ static const JSCFunctionListEntry js_object_proto_funcs[] = {
 };
 
 /* Function class */
-// 返回 JS_UNDEFINED
+/* 返回 JS_UNDEFINED */
 static JSValue js_function_proto(JSContext *ctx, JSValueConst this_val,
                                  int argc, JSValueConst *argv)
 {
@@ -48598,6 +48609,8 @@ static JSValue js_map_forEach(JSContext *ctx, JSValueConst this_val,
     return JS_UNDEFINED;
 }
 
+/* 实现 Object.groupBy / Map.groupBy, 遍历一个可迭代对象，对每个元素调用回调函数生成分组键，
+    然后把具有相同键的元素收集到同一个数组中，最终返回普通对象或 Map */
 static JSValue js_object_groupBy(JSContext *ctx, JSValueConst this_val,
                                  int argc, JSValueConst *argv, int is_map)
 {
