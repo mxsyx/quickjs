@@ -3415,7 +3415,7 @@ int JS_NewClass(JSRuntime *rt, JSClassID class_id, const JSClassDef *class_def)
     return ret;
 }
 
-// 从 char* 创建长度为 len 的 String
+/* 从 char* 创建长度为 len 的 JSString  */
 static JSValue js_new_string8_len(JSContext *ctx, const char *buf, int len)
 {
     JSString *str;
@@ -3431,6 +3431,7 @@ static JSValue js_new_string8_len(JSContext *ctx, const char *buf, int len)
     return JS_MKPTR(JS_TAG_STRING, str);
 }
 
+/* 从 char* 创建 JSString */
 static JSValue js_new_string8(JSContext *ctx, const char *buf)
 {
     return js_new_string8_len(ctx, buf, strlen(buf));
@@ -7466,6 +7467,7 @@ JSValue JS_GetPrototype(JSContext *ctx, JSValueConst obj)
     return val;
 }
 
+/* 获取 obj 的原型, obj 会被 free */
 static JSValue JS_GetPrototypeFree(JSContext *ctx, JSValue obj)
 {
     JSValue obj1;
@@ -16068,6 +16070,7 @@ static JSValue JS_IteratorNext(JSContext *ctx, JSValueConst enum_obj,
 }
 
 /* return < 0 in case of exception */
+/* 提前结束迭代时，调用迭代器的 return() 方法完成清理，并按照 ECMAScript 的异常优先级规则处理关闭过程中产生的异常 */
 static int JS_IteratorClose(JSContext *ctx, JSValueConst enum_obj,
                             BOOL is_exception_pending)
 {
@@ -16349,6 +16352,8 @@ exception:
     return -1;
 }
 
+/* 把 source 的所有可枚举自有属性（包括字符串属性和 Symbol 属性），排除 excluded 中指定的属性后，复制到 target。
+    它主要用于对象展开语法和对象解构剩余属性 */
 static __exception int JS_CopyDataProperties(JSContext *ctx,
                                              JSValueConst target,
                                              JSValueConst source,
@@ -38431,6 +38436,10 @@ static JSValue js_object___defineGetter__(JSContext *ctx, JSValueConst this_val,
     }
 }
 
+/* 实现 Object.getOwnPropertyDescriptor 和 Reflect.getOwnPropertyDescriptor,
+    查询对象自身的指定属性，并把内部的属性描述符转换成 JavaScript 可见的描述符对象；属性不存在时返回 undefined。
+    magic == 0  // Object.getOwnPropertyDescriptor
+    magic != 0  // Reflect.getOwnPropertyDescriptor */
 static JSValue js_object_getOwnPropertyDescriptor(JSContext *ctx, JSValueConst this_val,
                                                   int argc, JSValueConst *argv, int magic)
 {
@@ -38495,6 +38504,8 @@ exception:
     return JS_EXCEPTION;
 }
 
+/* 实现 Object.getOwnPropertyDescriptors, 把 obj 的所有自有字符串属性和 Symbol 属性都取出来，
+    为每个属性生成完整的属性描述符对象，最后返回一个以属性名为键、描述符为值的新对象。 */
 static JSValue js_object_getOwnPropertyDescriptors(JSContext *ctx, JSValueConst this_val,
                                                    int argc, JSValueConst *argv)
 {
@@ -38708,6 +38719,7 @@ static JSValue js_object_preventExtensions(JSContext *ctx, JSValueConst this_val
     }
 }
 
+/* 实现 Object.prototype.hasOwnProperty, 判断对象自身（Own Property）是否拥有指定属性，不会查找原型链 */
 static JSValue js_object_hasOwnProperty(JSContext *ctx, JSValueConst this_val,
                                         int argc, JSValueConst *argv)
 {
@@ -38734,6 +38746,7 @@ static JSValue js_object_hasOwnProperty(JSContext *ctx, JSValueConst this_val,
         return JS_NewBool(ctx, ret);
 }
 
+/* 实现 Object.hasOwn, 判断 obj 自身是否拥有名为 prop 的属性，不沿原型链查找，并返回布尔值 */
 static JSValue js_object_hasOwn(JSContext *ctx, JSValueConst this_val,
                                 int argc, JSValueConst *argv)
 {
@@ -38760,12 +38773,15 @@ static JSValue js_object_hasOwn(JSContext *ctx, JSValueConst this_val,
         return JS_NewBool(ctx, ret);
 }
 
+/* 将 this_val 转为对象 */
 static JSValue js_object_valueOf(JSContext *ctx, JSValueConst this_val,
                                  int argc, JSValueConst *argv)
 {
     return JS_ToObject(ctx, this_val);
 }
 
+/* 实现 Object.prototype.toString, 根据 this 的类型和 Symbol.toStringTag，
+    生成形如 "[object Array]"、"[object Object]"、"[object Null]" 的字符串 */
 static JSValue js_object_toString(JSContext *ctx, JSValueConst this_val,
                                   int argc, JSValueConst *argv)
 {
@@ -38821,12 +38837,14 @@ static JSValue js_object_toString(JSContext *ctx, JSValueConst this_val,
     return JS_ConcatString3(ctx, "[object ", tag, "]");
 }
 
+/* 执行 this_val 上的 toString 方法 */
 static JSValue js_object_toLocaleString(JSContext *ctx, JSValueConst this_val,
                                         int argc, JSValueConst *argv)
 {
     return JS_Invoke(ctx, this_val, JS_ATOM_toString, 0, NULL);
 }
 
+/* 实现 Object.assign, 把多个源对象自身的、可枚举的字符串属性和 Symbol 属性，依次复制到目标对象，并返回目标对象 */
 static JSValue js_object_assign(JSContext *ctx, JSValueConst this_val,
                                 int argc, JSValueConst *argv)
 {
@@ -38909,6 +38927,9 @@ static JSValue js_object_seal(JSContext *ctx, JSValueConst this_val,
     return JS_EXCEPTION;
 }
 
+/* 实现 Object.isSealed / Object.isFrozen, 通过 is_frozen 参数决定检查哪一种状态：
+    is_frozen == 0：判断对象是否 sealed
+    is_frozen == 1：判断对象是否 frozen */
 static JSValue js_object_isSealed(JSContext *ctx, JSValueConst this_val,
                                   int argc, JSValueConst *argv, int is_frozen)
 {
@@ -38955,6 +38976,7 @@ exception:
     return JS_EXCEPTION;
 }
 
+/* 实现 Object.fromEntries, 遍历一个由 [key, value] 项组成的可迭代对象，把每一项转换成目标对象的自有可枚举属性 */
 static JSValue js_object_fromEntries(JSContext *ctx, JSValueConst this_val,
                                      int argc, JSValueConst *argv)
 {
@@ -39055,6 +39077,7 @@ static JSValue js_object___toPrimitive(JSContext *ctx, JSValueConst this_val,
 #endif
 
 /* return an empty string if not an object */
+/* 返回一个对象内部对应的类名字符串；如果参数不是对象，则返回空字符串。 */
 static JSValue js_object___getClass(JSContext *ctx, JSValueConst this_val,
                                     int argc, JSValueConst *argv)
 {
@@ -39076,6 +39099,7 @@ static JSValue js_object___getClass(JSContext *ctx, JSValueConst this_val,
     return JS_AtomToString(ctx, atom);
 }
 
+/* 实现 Object.is, 调用 js_same_value 完成比较 */
 static JSValue js_object_is(JSContext *ctx, JSValueConst this_val,
                             int argc, JSValueConst *argv)
 {
@@ -39184,6 +39208,7 @@ static JSValue js_object_set___proto__(JSContext *ctx, JSValueConst this_val,
         return JS_UNDEFINED;
 }
 
+/* 实现  Object.prototype.isPrototypeOf, 判断 this_val 对应的对象，是否出现在参数 value 的原型链上 */
 static JSValue js_object_isPrototypeOf(JSContext *ctx, JSValueConst this_val,
                                        int argc, JSValueConst *argv)
 {
