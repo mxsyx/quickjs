@@ -12650,6 +12650,8 @@ int JS_ToInt32Clamp(JSContext *ctx, int *pres, JSValueConst val,
     return res;
 }
 
+/* 将 JSValue 转换为 int64_t, 并且采用“饱和转换”(saturating conversion): 超过 int64 范围时不会溢出，
+    而是钳制到 INT64_MIN / INT64_MAX. */
 static int JS_ToInt64SatFree(JSContext *ctx, int64_t *pres, JSValue val)
 {
     uint32_t tag;
@@ -12696,6 +12698,7 @@ int JS_ToInt64Sat(JSContext *ctx, int64_t *pres, JSValueConst val)
     return JS_ToInt64SatFree(ctx, pres, JS_DupValue(ctx, val));
 }
 
+/* 将 JSValue 转换成 int64_t, 然后对负数做偏移修正，并把结果限制（clamp）在 [min, max] 范围内 */
 int JS_ToInt64Clamp(JSContext *ctx, int64_t *pres, JSValueConst val,
                     int64_t min, int64_t max, int64_t neg_offset)
 {
@@ -12972,6 +12975,7 @@ int JS_ToIndex(JSContext *ctx, uint64_t *plen, JSValueConst val)
 
 /* convert a value to a length between 0 and MAX_SAFE_INTEGER.
    return -1 for exception */
+/* 将 JSValue 转换为 int, 并将结果限定在 0 and MAX_SAFE_INTEGER  */
 static __exception int JS_ToLengthFree(JSContext *ctx, int64_t *plen,
                                        JSValue val)
 {
@@ -38390,6 +38394,8 @@ static JSValue js_object_defineProperties(JSContext *ctx, JSValueConst this_val,
 }
 
 /* magic = 1 if called as __defineSetter__ */
+/* 实现 Object.prototype.__defineGetter__ 和 Object.prototype.__defineSetter__,
+   给一个对象动态定义一个访问器属性 */
 static JSValue js_object___defineGetter__(JSContext *ctx, JSValueConst this_val,
                                           int argc, JSValueConst *argv, int magic)
 {
@@ -39183,6 +39189,7 @@ static JSValue js_object___speciesConstructor(JSContext *ctx, JSValueConst this_
 }
 #endif
 
+/* 实现 Get Object.prototype.__proto__, 获取对象的原型 */
 static JSValue js_object_get___proto__(JSContext *ctx, JSValueConst this_val)
 {
     JSValue val, ret;
@@ -39195,6 +39202,7 @@ static JSValue js_object_get___proto__(JSContext *ctx, JSValueConst this_val)
     return ret;
 }
 
+/* 实现 Set Object.prototype.__proto__, 设置对象的原型 */
 static JSValue js_object_set___proto__(JSContext *ctx, JSValueConst this_val,
                                        JSValueConst proto)
 {
@@ -39249,6 +39257,8 @@ exception:
     return JS_EXCEPTION;
 }
 
+/* 实现 Object.prototype.propertyIsEnumerable, 判断一个对象自身是否拥有某个属性，
+    并且该属性的 enumerable 标志是否为 true */
 static JSValue js_object_propertyIsEnumerable(JSContext *ctx, JSValueConst this_val,
                                               int argc, JSValueConst *argv)
 {
@@ -39280,6 +39290,9 @@ exception:
     return res;
 }
 
+/* 实现 Object.prototype.__lookupGetter__ 和 Object.prototype.__lookupSetter__,
+   沿着对象的原型链查找某个属性的 getter/setter，如果找到 accessor property，就返回对应的 getter/setter 函数，
+   否则返回 undefined */
 static JSValue js_object___lookupGetter__(JSContext *ctx, JSValueConst this_val,
                                           int argc, JSValueConst *argv, int setter)
 {
@@ -39467,6 +39480,7 @@ static __exception int js_get_length32(JSContext *ctx, uint32_t *pres,
     return JS_ToUint32Free(ctx, pres, len_val);
 }
 
+/* 获取 obj 的 length 属性值 */
 static __exception int js_get_length64(JSContext *ctx, int64_t *pres,
                                        JSValueConst obj)
 {
@@ -39479,6 +39493,7 @@ static __exception int js_get_length64(JSContext *ctx, int64_t *pres,
     return JS_ToLengthFree(ctx, pres, len_val);
 }
 
+/* 依次释放 tab 中的每一个值, 最后释放 tab 自身 */
 static void free_arg_list(JSContext *ctx, JSValue *tab, uint32_t len)
 {
     uint32_t i;
@@ -39489,6 +39504,7 @@ static void free_arg_list(JSContext *ctx, JSValue *tab, uint32_t len)
 }
 
 /* XXX: should use ValueArray */
+/* 将 JS 中的可索引对象（通常是数组或 arguments）展开成一个 C 数组，每个元素对应一个函数调用参数，并处理引用计数 */
 static JSValue *build_arg_list(JSContext *ctx, uint32_t *plen,
                                JSValueConst array_arg)
 {
@@ -39537,6 +39553,8 @@ static JSValue *build_arg_list(JSContext *ctx, uint32_t *plen,
 
 /* magic value: 0 = normal apply, 1 = apply for constructor, 2 =
    Reflect.apply */
+/* 实现 Function.prototype.apply / Reflect.construct, 把一个函数 this_val 当作目标函数调用，
+    把第二个参数（数组或类数组对象）展开成参数列表，然后执行函数；如果需要，还可以走构造调用路径  */
 static JSValue js_function_apply(JSContext *ctx, JSValueConst this_val,
                                  int argc, JSValueConst *argv, int magic)
 {
@@ -39564,6 +39582,7 @@ static JSValue js_function_apply(JSContext *ctx, JSValueConst this_val,
     return ret;
 }
 
+/* 实现 Function.prototype.call, 使用指定的 this 值调用一个函数，并传入参数列表 */
 static JSValue js_function_call(JSContext *ctx, JSValueConst this_val,
                                 int argc, JSValueConst *argv)
 {
