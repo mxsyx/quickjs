@@ -1048,19 +1048,21 @@ JSValue JS_NewCFunctionData(JSContext *ctx, JSCFunctionData *func,
                             int length, int magic, int data_len,
                             JSValueConst *data);
 
-/* 调用 JS_NewCFunction2 创建 JS_CFUNC_generic 类型, mafic == 0 的 CFunction */
+/* 调用 JS_NewCFunction2 创建 JS_CFUNC_generic 类型, magic == 0 的 CFunction */
 static inline JSValue JS_NewCFunction(JSContext *ctx, JSCFunction *func, const char *name,
                                       int length)
 {
     return JS_NewCFunction2(ctx, func, name, length, JS_CFUNC_generic, 0);
 }
 
+/* 调用 JS_NewCFunction2 创建 cproto 类型, 指定 magic 的 CFunction */
 static inline JSValue JS_NewCFunctionMagic(JSContext *ctx, JSCFunctionMagic *func,
                                            const char *name,
                                            int length, JSCFunctionEnum cproto, int magic)
 {
     return JS_NewCFunction2(ctx, (JSCFunction *)func, name, length, cproto, magic);
 }
+
 void JS_SetConstructor(JSContext *ctx, JSValueConst func_obj,
                        JSValueConst proto);
 

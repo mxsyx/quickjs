@@ -5338,6 +5338,8 @@ static void js_function_set_properties(JSContext *ctx, JSValueConst func_obj,
                            JS_AtomToString(ctx, name), JS_PROP_CONFIGURABLE);
 }
 
+/* class_id in JS_CLASS_BYTECODE_FUNCTION, JS_CLASS_GENERATOR_FUNCTION,
+    JS_CLASS_ASYNC_FUNCTION, JS_CLASS_ASYNC_GENERATOR_FUNCTION */
 static BOOL js_class_has_bytecode(JSClassID class_id)
 {
     return (class_id == JS_CLASS_BYTECODE_FUNCTION ||
@@ -5347,6 +5349,7 @@ static BOOL js_class_has_bytecode(JSClassID class_id)
 }
 
 /* return NULL without exception if not a function or no bytecode */
+/* 获取函数的字节码 */
 static JSFunctionBytecode *JS_GetFunctionBytecode(JSValueConst val)
 {
     JSObject *p;
@@ -7477,6 +7480,7 @@ static JSValue JS_GetPrototypeFree(JSContext *ctx, JSValue obj)
 }
 
 /* return TRUE, FALSE or (-1) in case of exception */
+/* 实现普通对象的 instanceof 判断逻辑 */
 static int JS_OrdinaryIsInstanceOf(JSContext *ctx, JSValueConst val,
                                    JSValueConst obj)
 {
@@ -15534,6 +15538,7 @@ static JSValue js_throw_type_error(JSContext *ctx, JSValueConst this_val,
     return JS_UNDEFINED;
 }
 
+/* 实现 Function.prototype.fileName, 获取当前函数所在文件的文件名 */
 static JSValue js_function_proto_fileName(JSContext *ctx,
                                           JSValueConst this_val)
 {
@@ -15544,6 +15549,7 @@ static JSValue js_function_proto_fileName(JSContext *ctx,
     return JS_UNDEFINED;
 }
 
+/* 实现 Function.prototype.lineNumber /  Function.prototype.columnNumber  */
 static JSValue js_function_proto_lineNumber(JSContext *ctx,
                                             JSValueConst this_val, int is_col)
 {
@@ -39398,6 +39404,11 @@ static JSValue js_function_proto(JSContext *ctx, JSValueConst this_val,
 }
 
 /* XXX: add a specific eval mode so that Function("}), ({") is rejected */
+/* 实现 Function 构造器族
+    new Function(arg1, arg2, ..., body)
+    new AsyncFunction(...)
+    new GeneratorFunction(...)
+    new AsyncGeneratorFunction(...) */
 static JSValue js_function_constructor(JSContext *ctx, JSValueConst new_target,
                                        int argc, JSValueConst *argv, int magic)
 {
@@ -39593,6 +39604,8 @@ static JSValue js_function_call(JSContext *ctx, JSValueConst this_val,
     }
 }
 
+/* 实现 Function.prototype.bind, 创建一个新的 Bound Function 对象，把目标函数、固定的 this、
+    预填参数保存起来，之后调用这个新函数时自动带入这些绑定信息 */
 static JSValue js_function_bind(JSContext *ctx, JSValueConst this_val,
                                 int argc, JSValueConst *argv)
 {
@@ -39678,6 +39691,8 @@ static JSValue js_function_bind(JSContext *ctx, JSValueConst this_val,
     return JS_EXCEPTION;
 }
 
+/* 实现 Function.prototype.toString, 把一个 JavaScript 函数对象转换成字符串形式的函数源码表示,
+    如果保存了函数的原始源码，则返回源码；否则生成类似 [native code] 的伪源码字符串 */
 static JSValue js_function_toString(JSContext *ctx, JSValueConst this_val,
                                     int argc, JSValueConst *argv)
 {
@@ -39722,6 +39737,7 @@ static JSValue js_function_toString(JSContext *ctx, JSValueConst this_val,
     }
 }
 
+/* 实现 Function.prototype[Symbol.hasInstance], 调用 JS_OrdinaryIsInstanceOf 判断函数是否是某个对象的原型 */
 static JSValue js_function_hasInstance(JSContext *ctx, JSValueConst this_val,
                                        int argc, JSValueConst *argv)
 {
