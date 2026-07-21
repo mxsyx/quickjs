@@ -39800,6 +39800,7 @@ static JSValue iterator_to_array(JSContext *ctx, JSValueConst items)
     goto done;
 }
 
+/* 根据具体错误类型选择原型，创建 Error 对象，设置 message、cause、errors 等属性，并生成调用栈 */
 static JSValue js_error_constructor(JSContext *ctx, JSValueConst new_target,
                                     int argc, JSValueConst *argv, int magic)
 {
